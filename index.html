@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>코인 굴리기</title>
+    <title>코인 굴리기 (모바일 오버라이드 제거)</title>
     <link rel="icon" type="image/png" href="images/favicon.png">
     <!-- 텍스트 폰트 -->
 <style>
@@ -239,22 +239,70 @@
         cursor:pointer;
     }
 
-    /* ------------------ 모바일 오버라이드 제거 ------------------
-       이전 버전에서는 모바일에서 전체를 scale(0.5)으로 줄이는 등
-       별도 스타일을 적용해 모바일에서 다르게 보였음.
-       여기서는 모바일에서 별도의 스케일/대체 레이아웃을 적용하지 않고
-       데스크탑 스타일을 그대로 사용하게 함. 필요하면 아래에
-       아주 최소한의 모바일 대응만 추가하세요.
+    /* ------------------ 모바일 오버라이드 제거 (대체 반응형 규칙) ------------------
+       아래 규칙은 전체를 강제로 scale 하는 대신, 뷰포트 기반의 반응형 단위를 사용해
+       모바일/데스크톱 간 차이를 없애기 위한 최소한의 보정만 수행합니다.
     ----------------------------------------------------------- */
 
-    /* (선택적) 아주 가벼운 모바일 보정: 폰트/입력 크기만 약간 줄임 */
+    /* 반응형 기준값: 뷰포트에 따라 자동으로 코인/아이콘 크기 조절 */
+    :root{
+      --coin-size: clamp(44px, 8.5vw, 70px);        /* 코인 정사이즈(반응형) */
+      --result-width: clamp(140px, 22vw, 220px);    /* 결과 박스 너비 */
+      --small-icon: clamp(20px, 3.5vw, 32px);       /* 작은 아이콘(스텝퍼 등) */
+    }
+
+    /* 코인 크기(픽셀 고정 제거) */
+    .coin {
+      width: var(--coin-size);
+      height: var(--coin-size);
+      min-width: 44px;
+      min-height: 44px;
+      box-sizing: border-box;
+    }
+
+    /* 스프라이트 이미지(항상 부모 박스를 채우고 왜곡없게) */
+    .coin-sprite,
+    .coin img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      image-rendering: auto;
+      -webkit-user-drag: none;
+    }
+
+    /* 결과 컨테이너 반응형 */
+    #result-container {
+      width: var(--result-width);
+      aspect-ratio: 1 / 1;
+    }
+
+    /* 코인 카운트 아이콘/숫자 */
+    #coin-count-icon {
+      width: calc(var(--coin-size) * 0.45);
+      height: auto;
+      max-height: 40px;
+      display: block;
+    }
+
+    /* 숫자 입력 등은 폭을 clamp로 */
+    input[type="number"], input[type="text"] {
+      width: clamp(80px, 18vw, 110px);
+    }
+
+    /* 하단 컨트롤: transform 스케일 제거(translateX만 유지). 데스크탑/모바일 모두 동일한 레이아웃 비율 유지 */
+    #controls-container {
+      left: 50%;
+      transform: translateX(-50%); /* scale 사용 금지 */
+    }
+
+    /* 미디어 쿼리: 전체를 스케일하지 않고 '작게'만 조정 */
     @media (max-width:420px) {
-        body { padding:12px; padding-bottom: 160px; }
-        input[type=number], input[type=text] { width:90px; font-size:36px; }
-        #coin-count-value { font-size:32px; }
-        #roll-button { width:100px; height:70px; }
-        .coin { width:60px; height:60px; }
-        #result-container { width:180px; }
+      :root {
+        --coin-size: clamp(40px, 10vw, 60px);
+        --result-width: clamp(120px, 24vw, 180px);
+      }
+      #controls-container { padding:12px; gap:10px; }
     }
 
 </style>
@@ -388,6 +436,15 @@
         let currentResultValue = 0;
         let revealedCoinIndex = 0;
         let autoRollInterval = null;
+
+        function setResponsiveVars() {
+            const w = Math.max(320, Math.min(window.innerWidth, 900)); // 최소/최대 폭 제한
+            const coin = Math.round(Math.max(40, Math.min(80, w * 0.08)));
+            const result = Math.round(Math.max(120, Math.min(260, w * 0.22)));
+
+            document.documentElement.style.setProperty('--coin-size', coin + 'px');
+            document.documentElement.style.setProperty('--result-width', result + 'px');
+        }
 
         function init() {
             arrowUp.addEventListener('click', () => changeCoinCount(1));
@@ -735,6 +792,9 @@
         }
 
         init();
+            // 반응형 CSS 변수 강제 설정
+            setResponsiveVars();
+            window.addEventListener('resize', setResponsiveVars);
     });
 </script>
 
