@@ -809,7 +809,7 @@
         }
 
         function revealNextCoin() {
-            if (revealedCoinIndex >= coinCount) return;
+            if (revealedCoinIndex >= coinCount) return;        
 
             const coin = coins[revealedCoinIndex];
             const result = coin.result;
@@ -823,7 +823,17 @@
             if (result === 'h') {
                 coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(1)';
                 coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(0)';
-                const valueToAdd = (coin.state === 2) ? 1 : coinValue;
+
+                // 변경된 부분: alt2 상태일 때 마이너스 체크박스가 켜져 있으면 -1로 합산
+                let valueToAdd;
+                if (coin.state === 2) {
+                    // alt2 코인: 기본적으로 +1, 단 '마이너스 코인' 체크 시 -1
+                    valueToAdd = (negativeCheckbox && negativeCheckbox.checked) ? -1 : 1;
+                } else {
+                    // 그 외 상태는 coinValue 그대로(음수 가능)
+                    valueToAdd = coinValue;
+                }
+
                 currentResultValue += valueToAdd;
                 resultContainer.style.backgroundImage = `url('images/bg_heads.png')`;
                 playSound(soundHeads);
@@ -908,3 +918,4 @@
 
 </body>
 </html>
+
