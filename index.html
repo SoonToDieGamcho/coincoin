@@ -229,7 +229,10 @@
         }
         #sanity-container { position:static; grid-area: status; justify-content:flex-end; margin-bottom:10px; }
         #result-status-area { grid-area: status; padding-right:0; width:100%; justify-content:center; }
-        #coin-area { min-height:190px; }
+        #coin-area { min-height:190px;
+                     max-height:80vh;
+                     overflow-y: auto;
+         }
         #controls-container { flex-direction:column; gap:15px; }
         .coin { width:60px; height:60px; }
         #roll-button { width:100px; height:65px; position:static; left:0; }
@@ -688,3 +691,4 @@
 </body>
 
 </html>
+
