@@ -239,53 +239,22 @@
         cursor:pointer;
     }
 
-    /* 반응형 (모바일): 하단 고정 유지, 내부 레이아웃은 세로로, 중앙 정렬 유지
-       + 모든 요소를 절반 크기로 보이게 하기 위해 container 전체를 scale(0.5) 처리. */
-    @media (max-width:768px) {
-        /* 바디 패딩(모바일 전용) — scale로 인해 시각적으로 줄어든 높이에 맞춰 반으로 조정 */
-        body { padding:10px; padding-bottom: 110px; }
+    /* ------------------ 모바일 오버라이드 제거 ------------------
+       이전 버전에서는 모바일에서 전체를 scale(0.5)으로 줄이는 등
+       별도 스타일을 적용해 모바일에서 다르게 보였음.
+       여기서는 모바일에서 별도의 스케일/대체 레이아웃을 적용하지 않고
+       데스크탑 스타일을 그대로 사용하게 함. 필요하면 아래에
+       아주 최소한의 모바일 대응만 추가하세요.
+    ----------------------------------------------------------- */
 
-        /* 컨테이너 중앙 정렬 유지, 그리고 모든 내부 요소를 시각적으로 50% 축소 */
-        #game-container {
-            grid-template-areas:
-                "status"
-                "coins"
-                "controls";
-            grid-template-columns: 1fr;
-            grid-template-rows: auto 1fr auto;
-            gap:10px;
-            max-width:100%;
-            min-height: calc(100vh - 260px);
-            align-content: center;
-
-            /* 모든 요소 크기 -50%: scale 적용 */
-            -webkit-transform: scale(0.5);
-            transform: scale(0.5);
-            transform-origin: top center;
-        }
-
-        /* controls 고정이지만 세로 레이아웃 */
-        #controls-container {
-            padding:12px;
-            gap:12px;
-            flex-direction: column;
-            width: calc(100% - 24px);
-            left: 50%;
-            transform: translateX(-50%);
-            bottom: 8px;
-            border: 2px solid #ffffff;
-        }
-
-        #sanity-container { justify-content:center; gap:8px; }
-        /* 슬라이더는 시각적으로 작아져서 세로 대신 가로처럼 보일 수 있음 — 필요하면 따로 조정 가능 */
-        #sanity-slider { width:100px; height:14px; -webkit-appearance: none; appearance: none; transform: rotate(0deg); }
-        #sanity-value-wrapper { width:48px; height:48px; }
-        #sanity-value { font-size:22px; }
-
-        #coin-area { min-height:160px; max-height:50vh; padding-top:10px; align-content:center; }
+    /* (선택적) 아주 가벼운 모바일 보정: 폰트/입력 크기만 약간 줄임 */
+    @media (max-width:420px) {
+        body { padding:12px; padding-bottom: 160px; }
+        input[type=number], input[type=text] { width:90px; font-size:36px; }
+        #coin-count-value { font-size:32px; }
+        #roll-button { width:100px; height:70px; }
         .coin { width:60px; height:60px; }
-        #roll-button { width:100px; height:65px; }
-        #result-value { font-size: clamp(40px, 24vw, 110px); }
+        #result-container { width:180px; }
     }
 
 </style>
@@ -771,4 +740,3 @@
 
 </body>
 </html>
-
