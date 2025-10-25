@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>코인 굴리기 (업데이트)</title>
+    <!-- 텍스트 폰트 -->
+<style>
+    @font-face {
+        font-family: 'Escoredream';
+        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-4Regular.woff') format('woff');
+        font-weight: normal;
+        font-display: swap;
+    }
+</style>
+<!-- 숫자 폰트 -->
+<link href="https://fonts.cdnfonts.com/css/excelsior-sans" rel="stylesheet">
+
+<style>
+    :root{
+        --bg-color: #624300;
+        --text-color: #FFFFFF;
+        --number-font: 'Excelsior Sans', sans-serif;
+        --text-font: 'Escoredream', sans-serif;
+    }
+    html,body { height:100%; margin:0; padding:0; }
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: var(--text-font);
+        margin: 0;
+        padding: 20px;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        min-height:100vh;
+        user-select:none;
+        overflow:hidden;
+    }
+    .number-font { font-family: var(--number-font); }
+
+    /* 입력창 (크게) */
+    input[type=number], input[type=text] {
+        font-family: var(--number-font);
+        width: 110px;
+        font-size: 48px;
+        text-align: center;
+        border: 2px solid var(--text-color);
+        background-color: rgba(0,0,0,0.2);
+        color: var(--text-color);
+        border-radius: 8px;
+    }
+
+    /* 레이아웃 */
+    #game-container {
+        display: grid;
+        grid-template-areas:
+            "coins status"
+            "controls controls";
+        grid-template-columns: 1fr auto;
+        grid-template-rows: 1fr auto;
+        gap: 20px;
+        width:100%;
+        max-width:900px;
+        height:90vh;
+        margin:0 auto;
+        position:relative;
+    }
+
+    #sanity-container { position:absolute; top:0; right:0; display:flex; align-items:center; gap:10px; z-index:10; }
+    #sanity-value-wrapper { position:relative; width:70px; height:70px; display:flex; justify-content:center; align-items:center; }
+    #sanity-bg-container { position:absolute; width:100%; height:100%; border-radius:50%; overflow:hidden; }
+    #sanity-bg-container img { position:absolute; width:100%; height:100%; left:0; top:0; transition: opacity 0.3s ease; }
+    /* SANITY 값 1.3배 확대: 45 -> 59 */
+    #sanity-value { font-size:45px; z-index:1; }
+
+    #sanity-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width:20px; height:150px; cursor:pointer; }
+
+    #result-status-area { grid-area: status; display:flex; justify-content:center; align-items:center; padding-right:0; position:relative; width:250px; }
+    #result-container {
+        position:relative;
+        width:220px;
+        height:220px;
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        align-items:center;
+        border-radius:12px;
+        background-size:cover;
+        background-position:center;
+        background-repeat:no-repeat;
+        transition: none; /* 즉시 교체 */
+    }
+
+    /* coin-value 유지, result-value는 0.8배 축소 */
+    /* COIN VALUE 55 -> 72 (약 1.3배) */
+    #coin-value-display { background-color:transparent; padding:0; font-size:60px; z-index:2; }
+    /* RESULT VALUE 126 -> 164 (약 1.3배) */
+    #result-value { font-size:120px; z-index:1; line-height:0.9; }
+
+    /* 코인 영역 - 세로 중앙 정렬 */
+    #coin-area {
+        grid-area: coins;
+        display:flex;
+        flex-wrap:wrap;
+        justify-content:center;
+        align-content:center;
+        gap:15px;
+        min-height:410px;
+        padding:10px;
+        border-radius:12px;
+        background-color: rgba(0,0,0,0.1);
+        overflow-y: visible;
+    }
+
+    /* 코인 - 중앙 정렬, 높이 고정, 너비만 transform으로 변경 */
+    .coin {
+        width:70px;
+        height:70px;
+        position:relative;
+        cursor:pointer;
+        transform-style:preserve-3d;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+    }
+
+    .coin-sprite {
+        position:absolute;
+        left:50%;
+        top:50%;
+        /* translate to center; scaleX controls width only */
+        transform: translate(-50%, -50%) scaleX(1);
+        width:100%;
+        height:100%;
+        object-fit:contain;
+        backface-visibility:hidden;
+        transition: transform 0.075s linear; /* 빠른 transition */
+    }
+
+    /* 초기 스케일 상태 */
+    .coin .sprite-heads { transform: translate(-50%, -50%) scaleX(1); }
+    .coin .sprite-tails { transform: translate(-50%, -50%) scaleX(0); }
+    .coin .sprite-neutral { transform: translate(-50%, -50%) scaleX(1); }
+
+    /* 컨트롤 */
+    #controls-container {
+        grid-area: controls;
+        display:flex;
+        flex-wrap:wrap;
+        justify-content:space-around;
+        align-items:center;
+        gap:20px;
+        padding:20px;
+        background-color: rgba(0,0,0,0.1);
+        border-radius:12px;
+    }
+
+    .control-group { display:flex; align-items:center; gap:10px; }
+    .control-group label { font-size:20px; }
+
+    #coin-count-control { display:flex; align-items:center; gap:8px; }
+    #coin-count-stepper { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+    #coin-count-icon { width:30px; height:30px; }
+    /* coin-count-value 39 -> 51 (약 1.3배) */
+    #coin-count-value { font-size:39px; min-width:40px; text-align:center; }
+
+    .arrow-button { width:30px; height:30px; cursor:pointer; transition: transform 0.1s ease; }
+    .arrow-button:active { transform: scale(0.9); }
+
+    #auto-roll-control label { font-size:20px; cursor:pointer; }
+    #auto-roll-checkbox { width:20px; height:20px; cursor:pointer; }
+
+    #roll-button { width:120px; height:80px; cursor:pointer; transition: transform 0.1s ease; object-fit:contain; position:relative; left:20px; }
+    #roll-button:active { transform: scale(0.95); }
+    #roll-button.disabled { filter: grayscale(80%); pointer-events:none; cursor:not-allowed; }
+
+    /* 스파크 파티클: 크기 증가, 거리 증가, 지속시간 증가 */
+    .spark {
+        position:absolute;
+        width:8px;
+        height:8px;
+        border-radius:50%;
+        background: radial-gradient(circle at 30% 30%, #ffffe0, #ffd700);
+        filter: drop-shadow(0 0 8px rgba(255,240,120,0.98));
+        pointer-events:none;
+        opacity:1;
+        will-change: transform, opacity;
+        animation: spark-fly 700ms ease-out forwards; /* 700ms로 증가 */
+        z-index: 20;
+    }
+
+    @keyframes spark-fly {
+        0% { transform: translate(0,0) scale(1); opacity:1; }
+        100% { transform: translate(var(--dx), var(--dy)) scale(0.4); opacity:0; }
+    }
+
+    /* 슬라이더 스타일(간단) */
+    input[type="range"].small {
+        width:150px;
+        -webkit-appearance: none;
+        height:6px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 6px;
+        outline:none;
+    }
+    input[type="range"].small::-webkit-slider-thumb {
+        -webkit-appearance:none;
+        width:14px;
+        height:14px;
+        border-radius:50%;
+        background: #fff;
+        box-shadow: 0 0 4px rgba(0,0,0,0.4);
+        cursor:pointer;
+    }
+
+    @media (max-width:768px) {
+        body { padding:10px; height:auto; }
+        #game-container {
+            grid-template-areas:
+                "status"
+                "coins"
+                "controls";
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr auto;
+            gap:10px;
+            height:auto;
+            max-width:100%;
+        }
+        #sanity-container { position:static; grid-area: status; justify-content:flex-end; margin-bottom:10px; }
+        #result-status-area { grid-area: status; padding-right:0; width:100%; justify-content:center; }
+        #coin-area { min-height:200px; }
+        #controls-container { flex-direction:column; gap:15px; }
+        .coin { width:60px; height:60px; }
+        #roll-button { width:100px; height:65px; position:static; left:0; }
+        /* 모바일 result-value 110 -> 143 (약 1.3배) */
+        #result-value { font-size:110px; }
+    }
+
+</style>
+
+</head>
+<body>
+<div id="game-container">
+    <div id="sanity-container">
+        <div id="sanity-display">
+            <div id="sanity-value-wrapper">
+                <div id="sanity-bg-container">
+                    <img id="sanity-bg-base" src="images/sanity_bg_base.png" alt="정신력 배경 기본">
+                    <img id="sanity-bg-a" src="images/sanity_bg_a.png" alt="정신력 배경 +" style="opacity:0">
+                    <img id="sanity-bg-b" src="images/sanity_bg_b.png" alt="정신력 배경 -" style="opacity:0">
+                </div>
+                <span id="sanity-value" class="number-font">0</span>
+            </div>
+        </div>
+        <input type="range" id="sanity-slider" min="-45" max="45" value="0" orient="vertical">
+    </div>
+
+    <div id="result-status-area">
+        <div id="result-container">
+            <div id="coin-value-display" class="number-font">+0</div>
+            <span id="result-value" class="number-font">0</span>
+        </div>
+    </div>
+
+    <div id="coin-area"></div>
+
+    <div id="controls-container">
+        <div id="coin-count-control" class="control-group">
+            <img id="coin-count-icon" src="images/coin_normal_neutral.png" alt="코인 아이콘">
+            <div id="coin-count-stepper">
+                <img id="arrow-up" class="arrow-button" src="images/arrow_up.png" alt="증가">
+                <span id="coin-count-value" class="number-font">1</span>
+                <img id="arrow-down" class="arrow-button" src="images/arrow_down.png" alt="감소">
+            </div>
+        </div>
+
+        <div id="base-value-control" class="control-group">
+            <label for="base-value-input">기본값:</label>
+            <input type="number" id="base-value-input" value="0" min="0">
+        </div>
+
+        <div id="coin-value-control" class="control-group">
+            <label for="coin-value-input">코인값:</label>
+            <input type="number" id="coin-value-input" value="0">
+        </div>
+
+        <div id="auto-roll-control" class="control-group">
+            <input type="checkbox" id="auto-roll-checkbox" checked>
+            <label for="auto-roll-checkbox">자동 굴리기</label>
+        </div>
+
+        <!-- 자동굴리기 속도 슬라이더 (0.2 ~ 3초) -->
+        <div id="auto-roll-speed-control" class="control-group">
+            <label for="auto-roll-speed">속도:</label>
+            <input id="auto-roll-speed" class="small" type="range" min="0.1" max="2" step="0.1" value="0.5">
+            <span id="auto-roll-speed-value" class="number-font" style="font-size:20px; min-width:48px; text-align:center;">0.5s</span>
+        </div>
+
+        <img id="roll-button" src="images/button_roll.png" alt="굴리기">
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const spritePaths = {
+            0: { n: 'images/coin_normal_neutral.png', h: 'images/coin_normal_heads.png', t: 'images/coin_normal_tails.png' },
+            1: { n: 'images/coin_alt1_neutral.png', h: 'images/coin_alt1_heads.png', t: 'images/coin_alt1_tails.png' },
+            2: { n: 'images/coin_alt2_neutral.png', h: 'images/coin_alt2_heads.png', t: 'images/coin_alt2_tails.png' }
+        };
+
+        // 사운드 로드
+        const soundRoll = new Audio('sounds/roll.wav');
+        const soundHeads = new Audio('sounds/heads.wav');
+        const soundTails = new Audio('sounds/tails.wav');
+        // 뒷면 볼륨 50%
+        soundTails.volume = 0.5;
+
+        function playSound(template) {
+            if (!template) return;
+            try {
+                const a = template.cloneNode();
+                // 복제본에 동일한 볼륨 보장
+                a.volume = template.volume;
+                a.play().catch(()=>{});
+            } catch(e){}
+        }
+
+        const coinArea = document.getElementById('coin-area');
+        const resultValueEl = document.getElementById('result-value');
+        const resultContainer = document.getElementById('result-container');
+        const coinValueDisplayEl = document.getElementById('coin-value-display');
+
+        const coinCountValueEl = document.getElementById('coin-count-value');
+        const arrowUp = document.getElementById('arrow-up');
+        const arrowDown = document.getElementById('arrow-down');
+        const coinCountIcon = document.getElementById('coin-count-icon');
+
+        const baseValueInput = document.getElementById('base-value-input');
+        const coinValueInput = document.getElementById('coin-value-input');
+        const rollButton = document.getElementById('roll-button');
+        const autoRollCheckbox = document.getElementById('auto-roll-checkbox');
+
+        const sanitySlider = document.getElementById('sanity-slider');
+        const sanityValueEl = document.getElementById('sanity-value');
+        const sanityBgA = document.getElementById('sanity-bg-a');
+        const sanityBgB = document.getElementById('sanity-bg-b');
+
+        // auto-roll speed elements
+        const autoRollSpeedEl = document.getElementById('auto-roll-speed');
+        const autoRollSpeedValueEl = document.getElementById('auto-roll-speed-value');
+
+        let coinCount = 1;
+        let baseValue = 0;
+        let coinValue = 0;
+        let sanityValue = 0;
+        let isAutoRoll = false;
+
+        let isRolling = false;
+        let coins = [];
+        let currentResultValue = 0;
+        let revealedCoinIndex = 0;
+        let autoRollInterval = null;
+
+        function init() {
+            arrowUp.addEventListener('click', () => changeCoinCount(1));
+            arrowDown.addEventListener('click', () => changeCoinCount(-1));
+            baseValueInput.addEventListener('input', handleBaseValueChange);
+            coinValueInput.addEventListener('input', handleCoinValueChange);
+            sanitySlider.addEventListener('input', handleSanityChange);
+            autoRollCheckbox.addEventListener('change', handleAutoRollChange);
+            rollButton.addEventListener('click', startRoll);
+            document.addEventListener('click', handleManualReveal);
+
+            // auto-roll speed listeners
+            autoRollSpeedEl.addEventListener('input', handleAutoRollSpeedChange);
+
+            updateCoinCount(1);
+            handleBaseValueChange();
+            handleCoinValueChange();
+            handleSanityChange();
+            handleAutoRollChange();
+            handleAutoRollSpeedChange();
+            resetToSettingPhase(false);
+        }
+
+        function changeCoinCount(amount) {
+            if (isRolling) resetToSettingPhase(true);
+            let newCount = coinCount + amount;
+            if (newCount > 100) newCount = 100;
+            if (newCount < 1) newCount = 1;
+            if (newCount !== coinCount) updateCoinCount(newCount);
+        }
+
+        function updateCoinCount(newCount) {
+            coinCount = newCount;
+            coinCountValueEl.textContent = coinCount;
+            coinArea.innerHTML = '';
+            coins = [];
+            for (let i=0;i<coinCount;i++) createCoin(i);
+            adjustCoinLayout();
+            updateDisplays();
+        }
+
+        function createCoin(id) {
+            const coinEl = document.createElement('div');
+            coinEl.className = 'coin';
+
+            const neutralImg = document.createElement('img');
+            neutralImg.className = 'coin-sprite sprite-neutral';
+            const headsImg = document.createElement('img');
+            headsImg.className = 'coin-sprite sprite-heads';
+            const tailsImg = document.createElement('img');
+            tailsImg.className = 'coin-sprite sprite-tails';
+
+            coinEl.appendChild(neutralImg);
+            coinEl.appendChild(headsImg);
+            coinEl.appendChild(tailsImg);
+
+            const coin = {
+                id,
+                state: 0,
+                result: null,
+                element: coinEl,
+                sprites: { n: neutralImg, h: headsImg, t: tailsImg },
+                animationInterval: null
+            };
+
+            updateCoinSprites(coin);
+
+            // 중립만 보이기
+            coin.sprites.n.style.display = 'block';
+            coin.sprites.h.style.display = 'none';
+            coin.sprites.t.style.display = 'none';
+
+            coinEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isRolling) return;
+                coin.state = (coin.state + 1) % 3;
+                updateCoinSprites(coin);
+                coinCountIcon.src = spritePaths[0].n;
+            });
+
+            coins.push(coin);
+            coinArea.appendChild(coinEl);
+        }
+
+        function adjustCoinLayout() {
+            let size = 70;
+            if (coinCount > 10) size = 60;
+            if (coinCount > 20) size = 50;
+            if (coinCount > 40) size = 44;
+            coins.forEach(c => { c.element.style.width = `${size}px`; c.element.style.height = `${size}px`; });
+        }
+
+        function updateCoinSprites(coin) {
+            const paths = spritePaths[coin.state];
+            coin.sprites.n.src = paths.n;
+            coin.sprites.h.src = paths.h;
+            coin.sprites.t.src = paths.t;
+            coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(1)';
+            coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(0)';
+            coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
+        }
+
+        function handleBaseValueChange() {
+            if (isRolling) resetToSettingPhase(false);
+            baseValue = parseInt(baseValueInput.value,10) || 0;
+            if (baseValue < 0) { baseValue = 0; baseValueInput.value = 0; }
+            updateDisplays();
+        }
+
+        function handleCoinValueChange() {
+            if (isRolling) resetToSettingPhase(false);
+            coinValue = parseInt(coinValueInput.value,10) || 0;
+            updateDisplays();
+        }
+
+        function handleSanityChange() {
+            if (isRolling) resetToSettingPhase(false);
+            sanityValue = parseInt(sanitySlider.value,10);
+            updateDisplays();
+        }
+
+        function handleAutoRollChange() {
+            if (isRolling) resetToSettingPhase(false);
+            isAutoRoll = autoRollCheckbox.checked;
+        }
+
+        function handleAutoRollSpeedChange() {
+            const val = parseFloat(autoRollSpeedEl.value);
+            autoRollSpeedValueEl.textContent = val.toFixed(1) + 's';
+            // 만약 자동굴리기 중이면 간격 재설정
+            if (isAutoRoll && isRolling) {
+                if (autoRollInterval) {
+                    clearInterval(autoRollInterval);
+                    autoRollInterval = setInterval(revealNextCoin, Math.max(50, Math.round(val * 1000)));
+                }
+            }
+        }
+
+        function updateDisplays() {
+            coinValueDisplayEl.textContent = (coinValue >= 0 ? '+' : '') + coinValue;
+            if (isRolling) resultValueEl.textContent = currentResultValue;
+            else resultValueEl.textContent = baseValue;
+
+            sanityValueEl.textContent = sanityValue;
+            if (sanityValue >= 0) {
+                sanityBgA.style.opacity = sanityValue / 45;
+                sanityBgB.style.opacity = 0;
+            } else {
+                sanityBgA.style.opacity = 0;
+                sanityBgB.style.opacity = Math.abs(sanityValue) / 45;
+            }
+        }
+
+        // 애니메이션 시작: neutral의 scaleX만 번갈아 변경 (height 고정)
+        function startCoinAnimation(coin) {
+            stopCoinAnimation(coin);
+            // neutral visible, heads/tails hidden during rolling
+            coin.sprites.n.style.display = 'block';
+            coin.sprites.h.style.display = 'none';
+            coin.sprites.t.style.display = 'none';
+
+            // animationInterval : toggle neutral scaleX between 1 and 0 (width)
+            coin.animationInterval = setInterval(() => {
+                const prev = coin.sprites.n.style.transform;
+                if (!prev || prev.includes('scaleX(1)')) {
+                    coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(0)';
+                } else {
+                    coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
+                }
+            }, 75); // 75ms 간격 -> 빠른 플립(transition은 0.075s)
+        }
+
+        function stopCoinAnimation(coin) {
+            if (coin.animationInterval) {
+                clearInterval(coin.animationInterval);
+                coin.animationInterval = null;
+            }
+            // Ensure neutral ends in visible state for clarity
+            if (coin && coin.sprites && coin.sprites.n) {
+                coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
+            }
+        }
+
+        function resetToSettingPhase(resetCoinStates) {
+            isRolling = false;
+            revealedCoinIndex = 0;
+            currentResultValue = baseValue;
+            if (autoRollInterval) { clearInterval(autoRollInterval); autoRollInterval = null; }
+            rollButton.classList.remove('disabled');
+            resultContainer.style.backgroundImage = `url('images/bg_heads.png')`;
+
+            coins.forEach(coin => {
+                stopCoinAnimation(coin);
+                coin.sprites.n.style.display = 'block';
+                coin.sprites.h.style.display = 'none';
+                coin.sprites.t.style.display = 'none';
+                if (resetCoinStates) {
+                    coin.state = 0;
+                    updateCoinSprites(coin);
+                }
+                const sparks = coin.element.querySelectorAll('.spark');
+                sparks.forEach(s => s.remove());
+            });
+
+            updateDisplays();
+        }
+
+        function startRoll() {
+            if (isRolling && revealedCoinIndex < coinCount) return;
+            isRolling = true;
+            rollButton.classList.add('disabled');
+            revealedCoinIndex = 0;
+            currentResultValue = baseValue;
+            updateDisplays();
+
+            playSound(soundRoll);
+
+            const prob = (sanityValue + 50) / 100;
+            coins.forEach(coin => {
+                coin.result = (Math.random() < prob ? 'h' : 't');
+            });
+
+            // start neutral-width animation on each coin
+            coins.forEach(startCoinAnimation);
+
+            if (isAutoRoll) {
+                const delay = Math.max(50, Math.round(parseFloat(autoRollSpeedEl.value) * 1000));
+                autoRollInterval = setInterval(revealNextCoin, delay);
+            }
+        }
+
+        function handleManualReveal(e) {
+            if (!isRolling || isAutoRoll || e.target === rollButton) return;
+            if (revealedCoinIndex < coinCount) revealNextCoin();
+        }
+
+        function revealNextCoin() {
+            if (revealedCoinIndex >= coinCount) return;
+
+            const coin = coins[revealedCoinIndex];
+            const result = coin.result;
+
+            // stop neutral animation for this coin, then immediately show heads/tails
+            stopCoinAnimation(coin);
+
+            coin.sprites.n.style.display = 'none';
+            coin.sprites.h.style.display = 'block';
+            coin.sprites.t.style.display = 'block';
+
+            if (result === 'h') {
+                coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(1)';
+                coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(0)';
+                const valueToAdd = (coin.state === 2) ? 1 : coinValue;
+                currentResultValue += valueToAdd;
+                resultContainer.style.backgroundImage = `url('images/bg_heads.png')`;
+                playSound(soundHeads);
+                // 스파크를 좀 더 크게/많이
+                spawnSparksAtCoin(coin.element, 7);
+            } else {
+                coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(0)';
+                coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(1)';
+                resultContainer.style.backgroundImage = `url('images/bg_tails.png')`;
+                playSound(soundTails);
+            }
+
+            revealedCoinIndex++;
+            updateDisplays();
+
+            if (revealedCoinIndex === coinCount) {
+                endRoll();
+            }
+        }
+
+        function endRoll() {
+            if (isAutoRoll && autoRollInterval) {
+                clearInterval(autoRollInterval);
+                autoRollInterval = null;
+            }
+            rollButton.classList.remove('disabled');
+            isRolling = false;
+        }
+
+        // 스파크: 더 크고 더 많이, 거리 증가
+        function spawnSparksAtCoin(coinEl, count) {
+            const rect = coinEl.getBoundingClientRect();
+            const x0 = coinEl.clientWidth / 2;
+            const y0 = coinEl.clientHeight / 2;
+
+            for (let i=0;i<count;i++) {
+                const spark = document.createElement('div');
+                spark.className = 'spark';
+
+                // 시작 위치 (코인 내부 중심 기준)
+                const startX = x0 + (Math.random()*8 - 4);
+                const startY = y0 + (Math.random()*8 - 4);
+                spark.style.left = `${startX - 8}px`;
+                spark.style.top = `${startY - 8}px`;
+
+                // 방향과 더 긴 거리 (기본: 40 ~ 120px)
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 40 + Math.random()*80; // 40~120px
+                const dx = Math.cos(angle) * dist;
+                const dy = Math.sin(angle) * dist;
+
+                spark.style.setProperty('--dx', `${dx}px`);
+                spark.style.setProperty('--dy', `${dy}px`);
+
+                // 크기 키우기 (10 ~ 28px)
+                const s = 10 + Math.random()*18; // 10~28px
+                spark.style.width = `${s}px`;
+                spark.style.height = `${s}px`;
+                spark.style.borderRadius = `${s/2}px`;
+
+                coinEl.appendChild(spark);
+
+                // 조금 길게 유지 (700~900ms 사이)
+                setTimeout(() => { spark.remove(); }, 900);
+            }
+        }
+
+        init();
+    });
+</script>
+
+</body>
+</html>
