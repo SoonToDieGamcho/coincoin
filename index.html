@@ -600,12 +600,18 @@
         let autoRollInterval = null;
 
         function setResponsiveVars() {
-            const w = Math.max(320, Math.min(window.innerWidth, 900)); // 최소/최대 폭 제한
-            const coin = Math.round(Math.max(40, Math.min(80, w * 0.08)));
-            const result = Math.round(Math.max(120, Math.min(260, w * 0.22)));
-
-            document.documentElement.style.setProperty('--coin-size', coin + 'px');
-            document.documentElement.style.setProperty('--result-width', result + 'px');
+            // 모바일(<=420px)에서만 인라인 CSS 변수를 강제로 설정하도록 변경
+            const w = Math.max(320, Math.min(window.innerWidth, 900));
+            if (w <= 420) {
+                const coin = Math.round(Math.max(40, Math.min(80, w * 0.08)));
+                const result = Math.round(Math.max(120, Math.min(260, w * 0.22)));
+                document.documentElement.style.setProperty('--coin-size', coin + 'px');
+                document.documentElement.style.setProperty('--result-width', result + 'px');
+            } else {
+                // 데스크탑에서는 인라인 오버라이드를 제거해 CSS 루트 규칙을 따르게 함
+                document.documentElement.style.removeProperty('--coin-size');
+                document.documentElement.style.removeProperty('--result-width');
+            }
         }
 
         function init() {
