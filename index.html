@@ -127,10 +127,10 @@
         max-height:60vh;
         border-radius:12px;
         background-color: rgba(0,0,0,0.1);
-        overflow-y: visible;         /* 코인 많아지면 내부에서 스크롤 */
+        overflow-y: visible;         /* 변경: 많은 코인 생성 시 내부 스크롤 허용 */
     }
 
-    /* 코인 - 중앙 정렬, 높이 고정 */
+    /* 코인 - 중앙 정렬, 높이 고정 (사이즈는 JS에서 동적으로 조절) */
     .coin {
         width:70px;
         height:70px;
@@ -187,7 +187,7 @@
     #coin-count-control { display:flex; align-items:center; gap:8px; }
     #coin-count-stepper { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
     #coin-count-icon { width:30px; height:30px; }
-    #coin-count-value { font-size:39px; min-width:40px; text-align:center; }
+    #coin-count-value { font-size:39px; min-width:40px; text-align:center; cursor:pointer; user-select:none; }
 
     .arrow-button { width:30px; height:30px; cursor:pointer; transition: transform 0.1s ease; }
     .arrow-button:active { transform: scale(0.9); }
@@ -251,15 +251,21 @@
         cursor:pointer;
     }
 
-    /* ------------------ 모바일 오버라이드 제거 ------------------
-       이전 버전에서는 모바일에서 전체를 scale(0.5)으로 줄이는 등
-       별도 스타일을 적용해 모바일에서 다르게 보였음.
-       여기서는 모바일에서 별도의 스케일/대체 레이아웃을 적용하지 않고
-       데스크탑 스타일을 그대로 사용하게 함. 필요하면 아래에
-       아주 최소한의 모바일 대응만 추가하세요.
-    ----------------------------------------------------------- */
+    /* 인라인 숫자 편집 input 스타일 */
+    .inline-number-input {
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.6);
+        color: var(--text-color);
+        padding: 2px 6px;
+        border-radius: 6px;
+        min-width: 48px;
+        font-family: var(--number-font);
+        font-size: 36px;
+        text-align:center;
+    }
 
-    /* (선택적) 아주 가벼운 모바일 보정: 폰트/입력 크기만 약간 줄임 */
+    /* ------------------ 모바일 오버라이드 제거 ------------------ */
+
     @media (max-width:420px) {
         body { padding:12px; padding-bottom: 160px; }
         input[type=number], input[type=text] { width:90px; font-size:36px; }
@@ -305,7 +311,7 @@
             <img id="coin-count-icon" src="images/coin_normal_neutral.png" alt="코인 아이콘">
             <div id="coin-count-stepper">
                 <img id="arrow-up" class="arrow-button" src="images/arrow_up.png" alt="증가">
-                <span id="coin-count-value" class="number-font">1</span>
+                <span id="coin-count-value" class="number-font" tabindex="0">1</span>
                 <img id="arrow-down" class="arrow-button" src="images/arrow_down.png" alt="감소">
             </div>
         </div>
@@ -415,6 +421,12 @@
             arrowDown.addEventListener('click', () => changeCoinCount(-1));
             baseValueInput.addEventListener('input', handleBaseValueChange);
 
+            // coin-count 숫자 클릭으로 편집 가능하게
+            coinCountValueEl.addEventListener('click', activateInlineCoinCountEditor);
+            coinCountValueEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') activateInlineCoinCountEditor();
+            });
+
             // 기존 coinValue listener 유지 (값 변경 시 디스플레이 반영)
             coinValueInput.addEventListener('input', function(e) {
                 // 허용 문자: 숫자 0-9 와 마이너스 기호
@@ -456,27 +468,103 @@
             handleAutoRollChange();
             handleAutoRollSpeedChange();
             resetToSettingPhase(false);
+
+            // window resize 시 레이아웃 조정
+            window.addEventListener('resize', () => adjustCoinLayout());
         }
 
         function changeCoinCount(amount) {
             if (isRolling) resetToSettingPhase(true);
             let newCount = coinCount + amount;
-            if (newCount > 100) newCount = 100;
             if (newCount < 1) newCount = 1;
             if (newCount !== coinCount) updateCoinCount(newCount);
         }
 
+        // 인라인 편집: coin-count를 누르면 input이 생겨 숫자 입력 가능 (모바일 키보드 뜸)
+        function activateInlineCoinCountEditor() {
+            // 이미 편집 중이면 무시
+            if (document.getElementById('inline-coin-count-input')) return;
+
+            const span = coinCountValueEl;
+            const current = String(coinCount);
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '1';
+            input.value = current;
+            input.id = 'inline-coin-count-input';
+            input.className = 'inline-number-input number-font';
+            input.setAttribute('inputmode', 'numeric');
+            // 스타일 높이 맞추기
+            input.style.fontSize = window.matchMedia('(max-width:420px)').matches ? '28px' : '36px';
+
+            // 교체
+            span.replaceWith(input);
+            input.focus();
+            input.select();
+
+            function commit() {
+                let v = parseInt(input.value, 10);
+                if (!isFinite(v) || v < 1) v = 1;
+                updateCoinCount(v);
+                // input을 다시 span으로 복원
+                restoreSpan();
+            }
+
+            function restoreSpan() {
+                // 만약 이미 제거되었으면 무시
+                if (!input.parentNode) return;
+                const newSpan = document.createElement('span');
+                newSpan.id = 'coin-count-value';
+                newSpan.className = 'number-font';
+                newSpan.tabIndex = 0;
+                newSpan.textContent = String(coinCount);
+                // 이벤트 다시 연결
+                newSpan.addEventListener('click', activateInlineCoinCountEditor);
+                newSpan.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') activateInlineCoinCountEditor();
+                });
+                input.replaceWith(newSpan);
+                // rebind variable reference for other code
+                // Note: coinCountValueEl variable in closure won't auto-update; update local ref
+                // But we don't rely on coinCountValueEl variable after init; if needed we can re-query.
+            }
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    commit();
+                } else if (e.key === 'Escape') {
+                    restoreSpan();
+                }
+            });
+
+            input.addEventListener('blur', () => {
+                commit();
+            });
+        }
+
         function updateCoinCount(newCount) {
             coinCount = newCount;
-            coinCountValueEl.textContent = coinCount;
+            // coin-count-value DOM이 교체될 수 있으니 항상 query
+            const el = document.getElementById('coin-count-value');
+            if (el) el.textContent = coinCount;
             coinArea.innerHTML = '';
             coins = [];
-            for (let i=0;i<coinCount;i++) createCoin(i);
+
+            // 성능: DocumentFragment로 한꺼번에 추가
+            const frag = document.createDocumentFragment();
+            for (let i=0;i<coinCount;i++) {
+                const coinEl = createCoinElement(i);
+                frag.appendChild(coinEl);
+            }
+            coinArea.appendChild(frag);
+
+            // coins 구조는 createCoinElement에서 채워주므로 재조회
+            // (createCoinElement 함수도 coins 배열에 push함)
             adjustCoinLayout();
             updateDisplays();
         }
 
-        function createCoin(id) {
+        function createCoinElement(id) {
             const coinEl = document.createElement('div');
             coinEl.className = 'coin';
             coinEl.dataset.state = '0'; // 초기 상태 표기
@@ -516,14 +604,20 @@
             });
 
             coins.push(coin);
-            coinArea.appendChild(coinEl);
+            return coinEl;
         }
 
         function adjustCoinLayout() {
-            let size = 70;
-            if (coinCount > 10) size = 60;
-            if (coinCount > 20) size = 50;
-            if (coinCount > 40) size = 44;
+            // 동적으로 열 개수 계산 -> 코인 사이즈 조절
+            const areaWidth = coinArea.clientWidth || Math.min(window.innerWidth, 800);
+            // 간단히: 루트에 근거한 격자 계산
+            const cols = Math.max(1, Math.ceil(Math.sqrt(coinCount)));
+            const gapTotal = 15 * (cols + 1);
+            const approxSize = Math.floor((areaWidth - gapTotal) / cols);
+            let size = Math.max(24, Math.min(70, approxSize));
+            // 너무 작아지면 최소 20px로
+            if (!isFinite(size) || size < 20) size = 20;
+
             coins.forEach(c => { c.element.style.width = `${size}px`; c.element.style.height = `${size}px`; });
         }
 
@@ -630,6 +724,10 @@
                 sanityBgA.style.opacity = 0;
                 sanityBgB.style.opacity = Math.abs(sanityValue) / 45;
             }
+
+            // coin-count-value가 span으로 존재하면 텍스트 갱신
+            const ccEl = document.getElementById('coin-count-value');
+            if (ccEl) ccEl.textContent = String(coinCount);
         }
 
         function startCoinAnimation(coin) {
@@ -810,17 +908,3 @@
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
