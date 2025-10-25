@@ -315,6 +315,12 @@
                    aria-label="코인값 (음수 허용)">
         </div>
 
+        <!-- 새로 추가된: 마이너스 코인 체크박스 -->
+        <div id="negative-coin-control" class="control-group">
+            <input type="checkbox" id="negative-coin-checkbox" />
+            <label for="negative-coin-checkbox">마이너스 코인</label>
+        </div>
+
         <div id="auto-roll-control" class="control-group">
             <input type="checkbox" id="auto-roll-checkbox" checked>
             <label for="auto-roll-checkbox">자동 굴리기</label>
@@ -378,6 +384,9 @@
         const autoRollSpeedEl = document.getElementById('auto-roll-speed');
         const autoRollSpeedValueEl = document.getElementById('auto-roll-speed-value');
 
+        // 새로 추가된 체크박스 참조
+        const negativeCheckbox = document.getElementById('negative-coin-checkbox');
+
         let coinCount = 1;
         let baseValue = 0;
         let coinValue = 0;
@@ -396,9 +405,6 @@
             baseValueInput.addEventListener('input', handleBaseValueChange);
 
             // 기존 coinValue listener 유지 (값 변경 시 디스플레이 반영)
-            coinValueInput.addEventListener('input', handleCoinValueChange);
-
-            // --- 모바일에서 '-' 입력 가능하도록 실시간 필터 추가 ---
             coinValueInput.addEventListener('input', function(e) {
                 // 허용 문자: 숫자 0-9 와 마이너스 기호
                 let v = this.value.replace(/[^\d-]/g, '');
@@ -411,8 +417,17 @@
                 // 맨 앞이 아닌 '-'는 제거
                 v = v.replace(/(?!^)-/g, '');
                 this.value = v;
+
+                // 만약 체크박스가 켜져있고 사용자가 '-'를 지웠다면 자동으로 앞에 '-' 붙여주기
+                if (negativeCheckbox && negativeCheckbox.checked && !this.value.startsWith('-')) {
+                    this.value = '-' + (this.value === '' ? '0' : this.value);
+                }
+
+                handleCoinValueChange();
             });
-            // -----------------------------------------------------
+
+            // 체크박스 이벤트: 체크시 입력값 앞에 '-' 붙이기, 해제시 '-' 제거
+            negativeCheckbox.addEventListener('change', handleNegativeToggle);
 
             sanitySlider.addEventListener('input', handleSanityChange);
             autoRollCheckbox.addEventListener('change', handleAutoRollChange);
@@ -424,6 +439,7 @@
 
             updateCoinCount(1);
             handleBaseValueChange();
+            // 초기 coinValue 반영 (coinValueInput value 초기값: "0")
             handleCoinValueChange();
             handleSanityChange();
             handleAutoRollChange();
@@ -521,9 +537,50 @@
 
         function handleCoinValueChange() {
             if (isRolling) resetToSettingPhase(false);
-            // parseInt will handle '-' -> NaN -> || 0
-            coinValue = parseInt(coinValueInput.value,10) || 0;
+            // 입력에서 숫자만 추출 (부호는 체크박스 또는 앞의 '-'로 처리)
+            const raw = (coinValueInput.value || '').trim();
+            const digitsOnly = raw.replace(/[^0-9]/g, '');
+            const absVal = parseInt(digitsOnly, 10) || 0;
+
+            // 우선: 사용자가 직접 '-'를 입력했으면 그걸 우선으로 고려
+            const userTypedNegative = raw.startsWith('-');
+
+            if (negativeCheckbox && negativeCheckbox.checked) {
+                coinValue = -absVal;
+            } else if (userTypedNegative) {
+                coinValue = -absVal;
+            } else {
+                coinValue = absVal;
+            }
+
             updateDisplays();
+        }
+
+        function handleNegativeToggle() {
+            if (isRolling) resetToSettingPhase(false);
+
+            // 현재 입력값에서 숫자만 추출
+            let v = (coinValueInput.value || '').replace(/[^0-9]/g, '');
+            if (v === '') v = '0';
+
+            if (negativeCheckbox.checked) {
+                // 체크하면 앞에 '-' 붙여주기 (중복 방지)
+                if (!coinValueInput.value.startsWith('-')) {
+                    coinValueInput.value = '-' + v;
+                } else {
+                    // 이미 '-'가 있으면 숫자 정리만
+                    coinValueInput.value = '-' + v;
+                }
+            } else {
+                // 체크 해제면 '-' 제거
+                if (coinValueInput.value.startsWith('-')) {
+                    coinValueInput.value = v;
+                } else {
+                    coinValueInput.value = v;
+                }
+            }
+            // 값 변경 반영
+            handleCoinValueChange();
         }
 
         function handleSanityChange() {
@@ -549,6 +606,7 @@
         }
 
         function updateDisplays() {
+            // coinValue는 이미 음수/양수로 결정되어 있음
             coinValueDisplayEl.textContent = (coinValue >= 0 ? '+' : '') + coinValue;
             if (isRolling) resultValueEl.textContent = currentResultValue;
             else resultValueEl.textContent = baseValue;
