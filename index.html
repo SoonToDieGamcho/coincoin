@@ -214,31 +214,21 @@
         cursor:pointer;
     }
 
-    @media (max-width:768px) {
-        body { padding:10px; height:auto; }
-        #game-container {
-            grid-template-areas:
-                "status"
-                "coins"
-                "controls";
-            grid-template-columns: 1fr;
-            grid-template-rows: auto 1fr auto;
-            gap:10px;
-            height:auto;
-            max-width:100%;
-        }
-        #sanity-container { position:static; grid-area: status; justify-content:flex-end; margin-bottom:10px; }
-        #result-status-area { grid-area: status; padding-right:0; width:100%; justify-content:center; }
-        #coin-area { min-height:190px;
-                     max-height:80vh;
-                     overflow-y: auto;
-         }
-        #controls-container { flex-direction:column; gap:15px; }
-        .coin { width:60px; height:60px; }
-        #roll-button { width:100px; height:65px; position:static; left:0; }
-        /* 모바일 result-value 110 -> 143 (약 1.3배) */
-        #result-value { font-size:110px; }
+    @media (max-width: 768px) {
+    body {
+        height: auto;         /* 화면 높이 자동 */
+        overflow-y: auto;     /* 세로 스크롤 허용 */
     }
+    #game-container {
+        height: auto;         /* 컨테이너 높이도 자동 */
+        max-width: 100%;
+    }
+    #coin-area {
+        min-height: 200px;
+        max-height: none;     /* 모바일에서는 제한 없음 */
+        overflow-y: visible;  /* 내부 스크롤 필요 없으면 visible */
+    }
+}
 
 </style>
 
@@ -691,4 +681,5 @@
 </body>
 
 </html>
+
 
