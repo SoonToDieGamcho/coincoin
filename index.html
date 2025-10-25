@@ -17,26 +17,34 @@
 <link href="https://fonts.cdnfonts.com/css/excelsior-sans" rel="stylesheet">
 
 <style>
+    /* 전역 박스 사이징 (안정성) */
+    * { box-sizing: border-box; }
+
     :root{
         --bg-color: #624300;
         --text-color: #FFFFFF;
         --number-font: 'Excelsior Sans', sans-serif;
         --text-font: 'Escoredream', sans-serif;
     }
-    html,body { height:100%; margin:0; padding:0; }
+
+    html, body { height:100%; margin:0; padding:0; }
+
+    /* BODY: 하단 고정 컨트롤 때문에 충분한 바텀 패딩 추가 */
     body {
         background-color: var(--bg-color);
         color: var(--text-color);
         font-family: var(--text-font);
         margin: 0;
         padding: 20px;
+        padding-bottom: 180px; /* 하단 고정 컨트롤과 겹치지 않게 여유 */
         display:flex;
         justify-content:center;
-        align-items:center;
+        align-items:flex-start;
         min-height:100vh;
         user-select:none;
-        overflow:hidden;
+        overflow-y:visible;
     }
+
     .number-font { font-family: var(--number-font); }
 
     /* 입력창 (크게) */
@@ -51,36 +59,29 @@
         border-radius: 8px;
     }
 
-    /* 레이아웃 */
+    /* 레이아웃: 높이를 자동으로 처리하도록 */
     #game-container {
         display: grid;
         grid-template-areas:
             "coins status"
             "controls controls";
         grid-template-columns: 1fr auto;
-        grid-template-rows: 1fr auto;
+        grid-template-rows: auto auto;
         gap: 20px;
         width:100%;
         max-width:900px;
-        height:90vh;
+        height:auto;
         margin:0 auto;
         position:relative;
+        padding-bottom: 0; /* 실제 고정 컨트롤은 body padding-bottom으로 처리 */
     }
 
-    #sanity-container { position:absolute; top:0; right:0; display:flex; align-items:center; gap:10px; z-index:10; }
-    #sanity-value-wrapper { position:relative; width:70px; height:70px; display:flex; justify-content:center; align-items:center; }
-    #sanity-bg-container { position:absolute; width:100%; height:100%; border-radius:50%; overflow:hidden; }
-    #sanity-bg-container img { position:absolute; width:100%; height:100%; left:0; top:0; transition: opacity 0.3s ease; }
-    /* SANITY 값 1.3배 확대: 45 -> 59 */
-    #sanity-value { font-size:45px; z-index:1; }
-
-    #sanity-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width:20px; height:150px; cursor:pointer; }
-
+    /* 결과 영역 (우측 위) */
     #result-status-area { grid-area: status; display:flex; justify-content:center; align-items:center; padding-right:0; position:relative; width:250px; }
     #result-container {
         position:relative;
         width:220px;
-        height:220px;
+        aspect-ratio: 1 / 1;
         display:flex;
         flex-direction:column;
         justify-content:center;
@@ -89,31 +90,32 @@
         background-size:cover;
         background-position:center;
         background-repeat:no-repeat;
-        transition: none; /* 즉시 교체 */
+        transition: none;
+        overflow:hidden;
     }
 
-    /* coin-value 유지, result-value는 0.8배 축소 */
-    /* COIN VALUE 55 -> 72 (약 1.3배) */
-    #coin-value-display { background-color:transparent; padding:0; font-size:60px; z-index:2; }
-    /* RESULT VALUE 126 -> 164 (약 1.3배) */
-    #result-value { font-size:120px; z-index:1; line-height:0.9; }
+    /* coin-value 유지, result-value는 반응형으로 */
+    #coin-value-display { background-color:transparent; padding:0; font-size: clamp(24px, 4vw, 60px); z-index:2; }
+    #result-value { font-size: clamp(48px, 12vw, 120px); z-index:1; line-height:0.9; }
 
-    /* 코인 영역 - 세로 중앙 정렬 */
+    /* 코인 영역 - 위쪽에서부터 쌓이게, 위 공백 추가, 내부 스크롤 허용 */
     #coin-area {
         grid-area: coins;
         display:flex;
         flex-wrap:wrap;
         justify-content:center;
-        align-content:center;
+        align-content:flex-start;
         gap:15px;
-        min-height:410px;
-        padding:10px;
+        margin-top:28px;        /* <-- 한 줄 공백(요청 반영) */
+        padding:24px 10px 10px 10px; /* 위쪽 패딩 추가로 초기 생성 시 더 여유 있게 */
+        min-height:180px;
+        max-height:60vh;
         border-radius:12px;
         background-color: rgba(0,0,0,0.1);
-        overflow-y: visible;
+        overflow-y: visible;       /* 코인 많아지면 내부에서 스크롤 */
     }
 
-    /* 코인 - 중앙 정렬, 높이 고정, 너비만 transform으로 변경 */
+    /* 코인 - 중앙 정렬, 높이 고정 */
     .coin {
         width:70px;
         height:70px;
@@ -129,65 +131,86 @@
         position:absolute;
         left:50%;
         top:50%;
-        /* translate to center; scaleX controls width only */
         transform: translate(-50%, -50%) scaleX(1);
         width:100%;
         height:100%;
         object-fit:contain;
         backface-visibility:hidden;
-        transition: transform 0.075s linear; /* 빠른 transition */
+        transition: transform 0.075s linear;
     }
 
-    /* 초기 스케일 상태 */
     .coin .sprite-heads { transform: translate(-50%, -50%) scaleX(1); }
     .coin .sprite-tails { transform: translate(-50%, -50%) scaleX(0); }
     .coin .sprite-neutral { transform: translate(-50%, -50%) scaleX(1); }
 
-    /* 컨트롤 */
+    /* 하단 설정 컨테이너 (화면 하단에 고정) */
     #controls-container {
-        grid-area: controls;
+        /* 고정: 화면 하단에 항상 보임 */
+        position: fixed;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 40px);
+        max-width: 900px;
         display:flex;
         flex-wrap:wrap;
         justify-content:space-around;
         align-items:center;
         gap:20px;
-        padding:20px;
-        background-color: rgba(0,0,0,0.1);
+        padding:14px 18px;
+        background-color: #4D3400; /* 요청 반영: 진한 브라운 */
+        border: 2px solid #ffffff;  /* 요청 반영: 흰 테두리 */
         border-radius:12px;
+        z-index:20;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+        /* backdrop은 색이 단색이라 크게 필요 없지만 약간 유지 */
+        backdrop-filter: blur(6px);
     }
 
-    .control-group { display:flex; align-items:center; gap:10px; }
-    .control-group label { font-size:20px; }
+    .control-group { display:flex; align-items:center; gap:10px; color:var(--text-color); }
+    .control-group label { font-size:18px; }
 
     #coin-count-control { display:flex; align-items:center; gap:8px; }
     #coin-count-stepper { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
     #coin-count-icon { width:30px; height:30px; }
-    /* coin-count-value 39 -> 51 (약 1.3배) */
     #coin-count-value { font-size:39px; min-width:40px; text-align:center; }
 
     .arrow-button { width:30px; height:30px; cursor:pointer; transition: transform 0.1s ease; }
     .arrow-button:active { transform: scale(0.9); }
 
-    #auto-roll-control label { font-size:20px; cursor:pointer; }
+    #auto-roll-control label { font-size:18px; cursor:pointer; }
     #auto-roll-checkbox { width:20px; height:20px; cursor:pointer; }
 
-    #roll-button { width:120px; height:80px; cursor:pointer; transition: transform 0.1s ease; object-fit:contain; position:relative; left:20px; }
+    #roll-button { width:120px; height:80px; cursor:pointer; transition: transform 0.1s ease; object-fit:contain; }
     #roll-button:active { transform: scale(0.95); }
     #roll-button.disabled { filter: grayscale(80%); pointer-events:none; cursor:not-allowed; }
 
-    /* 스파크 파티클: 크기 증가, 거리 증가, 지속시간 증가 */
+    /* SANITY 관련: 설정칸 내부에 위치 (슬라이더, 배경 이미지 유지) */
+    #sanity-container {
+        display:flex;
+        align-items:center;
+        gap:10px;
+        min-width:120px;
+        justify-content:center;
+    }
+    #sanity-value-wrapper { position:relative; width:56px; height:56px; display:flex; justify-content:center; align-items:center; }
+    #sanity-bg-container { position:absolute; width:100%; height:100%; border-radius:50%; overflow:hidden; }
+    #sanity-bg-container img { position:absolute; width:100%; height:100%; left:0; top:0; transition: opacity 0.3s ease; }
+    #sanity-value { font-size:28px; z-index:1; }
+
+    #sanity-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width:18px; height:110px; cursor:pointer; }
+
+    /* 스파크 파티클 - 기본 설정은 CSS에서 최소값만 잡음; 실제 색/섀도우는 JS에서 적용 */
     .spark {
         position:absolute;
         width:8px;
         height:8px;
         border-radius:50%;
-        background: radial-gradient(circle at 30% 30%, #ffffe0, #ffd700);
-        filter: drop-shadow(0 0 8px rgba(255,240,120,0.98));
         pointer-events:none;
         opacity:1;
         will-change: transform, opacity;
-        animation: spark-fly 700ms ease-out forwards; /* 700ms로 증가 */
-        z-index: 20;
+        animation: spark-fly 700ms ease-out forwards;
+        z-index: 30;
     }
 
     @keyframes spark-fly {
@@ -214,40 +237,48 @@
         cursor:pointer;
     }
 
-    @media (max-width: 768px) {
-    body {
-        height: auto;         /* 화면 높이 자동 */
-        overflow-y: auto;     /* 세로 스크롤 허용 */
+    /* 반응형 (모바일): 하단 고정 유지, 내부 레이아웃은 세로로 */
+    @media (max-width:768px) {
+        body { padding:10px; padding-bottom: 220px; } /* 모바일에선 컨트롤이 더 크게 보일 수 있으니 여유 더 줌 */
+        #game-container {
+            grid-template-areas:
+                "status"
+                "coins"
+                "controls";
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr auto;
+            gap:10px;
+            max-width:100%;
+        }
+
+        /* controls 고정이지만 세로 레이아웃 */
+        #controls-container {
+            padding:12px;
+            gap:12px;
+            flex-direction: column;
+            width: calc(100% - 24px);
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 8px;
+            border: 2px solid #ffffff; /* 모바일에서도 흰 테두리 유지 */
+        }
+
+        #sanity-container { justify-content:center; gap:8px; }
+        #sanity-slider { width:100px; height:14px; /* horizontal-like */ -webkit-appearance: none; appearance: none; transform: rotate(0deg); }
+        #sanity-value-wrapper { width:48px; height:48px; }
+        #sanity-value { font-size:22px; }
+
+        #coin-area { min-height:120px; max-height:50vh; margin-top:18px; padding-top:18px; }
+        .coin { width:60px; height:60px; }
+        #roll-button { width:100px; height:65px; }
+        #result-value { font-size: clamp(40px, 24vw, 110px); }
     }
-    #game-container {
-        height: auto;         /* 컨테이너 높이도 자동 */
-        max-width: 100%;
-    }
-    #coin-area {
-        min-height: 200px;
-        max-height: none;     /* 모바일에서는 제한 없음 */
-        overflow-y: visible;  /* 내부 스크롤 필요 없으면 visible */
-    }
-}
 
 </style>
 
 </head>
 <body>
 <div id="game-container">
-    <div id="sanity-container">
-        <div id="sanity-display">
-            <div id="sanity-value-wrapper">
-                <div id="sanity-bg-container">
-                    <img id="sanity-bg-base" src="images/sanity_bg_base.png" alt="정신력 배경 기본">
-                    <img id="sanity-bg-a" src="images/sanity_bg_a.png" alt="정신력 배경 +" style="opacity:0">
-                    <img id="sanity-bg-b" src="images/sanity_bg_b.png" alt="정신력 배경 -" style="opacity:0">
-                </div>
-                <span id="sanity-value" class="number-font">0</span>
-            </div>
-        </div>
-        <input type="range" id="sanity-slider" min="-45" max="45" value="0" orient="vertical">
-    </div>
 
     <div id="result-status-area">
         <div id="result-container">
@@ -258,7 +289,23 @@
 
     <div id="coin-area"></div>
 
+    <!-- 설정칸: 하단 고정. 정신력 표시(#sanity-container)를 여기로 이동 -->
     <div id="controls-container">
+        <!-- SANITY (설정칸 내부로 이동) -->
+        <div id="sanity-container">
+            <div id="sanity-display">
+                <div id="sanity-value-wrapper">
+                    <div id="sanity-bg-container">
+                        <img id="sanity-bg-base" src="images/sanity_bg_base.png" alt="정신력 배경 기본">
+                        <img id="sanity-bg-a" src="images/sanity_bg_a.png" alt="정신력 배경 +" style="opacity:0">
+                        <img id="sanity-bg-b" src="images/sanity_bg_b.png" alt="정신력 배경 -" style="opacity:0">
+                    </div>
+                    <span id="sanity-value" class="number-font">0</span>
+                </div>
+            </div>
+            <input type="range" id="sanity-slider" min="-45" max="45" value="0" orient="vertical">
+        </div>
+
         <div id="coin-count-control" class="control-group">
             <img id="coin-count-icon" src="images/coin_normal_neutral.png" alt="코인 아이콘">
             <div id="coin-count-stepper">
@@ -283,7 +330,7 @@
             <label for="auto-roll-checkbox">자동 굴리기</label>
         </div>
 
-        <!-- 자동굴리기 속도 슬라이더 (0.2 ~ 3초) -->
+        <!-- 자동굴리기 속도 슬라이더 (0.1 ~ 2초) -->
         <div id="auto-roll-speed-control" class="control-group">
             <label for="auto-roll-speed">속도:</label>
             <input id="auto-roll-speed" class="small" type="range" min="0.1" max="2" step="0.1" value="0.5">
@@ -306,14 +353,12 @@
         const soundRoll = new Audio('sounds/roll.wav');
         const soundHeads = new Audio('sounds/heads.wav');
         const soundTails = new Audio('sounds/tails.wav');
-        // 뒷면 볼륨 50%
         soundTails.volume = 0.5;
 
         function playSound(template) {
             if (!template) return;
             try {
                 const a = template.cloneNode();
-                // 복제본에 동일한 볼륨 보장
                 a.volume = template.volume;
                 a.play().catch(()=>{});
             } catch(e){}
@@ -398,6 +443,7 @@
         function createCoin(id) {
             const coinEl = document.createElement('div');
             coinEl.className = 'coin';
+            coinEl.dataset.state = '0'; // 초기 상태 표기
 
             const neutralImg = document.createElement('img');
             neutralImg.className = 'coin-sprite sprite-neutral';
@@ -421,7 +467,6 @@
 
             updateCoinSprites(coin);
 
-            // 중립만 보이기
             coin.sprites.n.style.display = 'block';
             coin.sprites.h.style.display = 'none';
             coin.sprites.t.style.display = 'none';
@@ -454,6 +499,8 @@
             coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(1)';
             coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(0)';
             coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
+            // 데이터 속성으로 상태 반영 (spawnSparksAtCoin에서 사용)
+            if (coin.element) coin.element.dataset.state = String(coin.state);
         }
 
         function handleBaseValueChange() {
@@ -483,7 +530,6 @@
         function handleAutoRollSpeedChange() {
             const val = parseFloat(autoRollSpeedEl.value);
             autoRollSpeedValueEl.textContent = val.toFixed(1) + 's';
-            // 만약 자동굴리기 중이면 간격 재설정
             if (isAutoRoll && isRolling) {
                 if (autoRollInterval) {
                     clearInterval(autoRollInterval);
@@ -507,15 +553,12 @@
             }
         }
 
-        // 애니메이션 시작: neutral의 scaleX만 번갈아 변경 (height 고정)
         function startCoinAnimation(coin) {
             stopCoinAnimation(coin);
-            // neutral visible, heads/tails hidden during rolling
             coin.sprites.n.style.display = 'block';
             coin.sprites.h.style.display = 'none';
             coin.sprites.t.style.display = 'none';
 
-            // animationInterval : toggle neutral scaleX between 1 and 0 (width)
             coin.animationInterval = setInterval(() => {
                 const prev = coin.sprites.n.style.transform;
                 if (!prev || prev.includes('scaleX(1)')) {
@@ -523,7 +566,7 @@
                 } else {
                     coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
                 }
-            }, 75); // 75ms 간격 -> 빠른 플립(transition은 0.075s)
+            }, 75);
         }
 
         function stopCoinAnimation(coin) {
@@ -531,7 +574,6 @@
                 clearInterval(coin.animationInterval);
                 coin.animationInterval = null;
             }
-            // Ensure neutral ends in visible state for clarity
             if (coin && coin.sprites && coin.sprites.n) {
                 coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
             }
@@ -576,7 +618,6 @@
                 coin.result = (Math.random() < prob ? 'h' : 't');
             });
 
-            // start neutral-width animation on each coin
             coins.forEach(startCoinAnimation);
 
             if (isAutoRoll) {
@@ -596,7 +637,6 @@
             const coin = coins[revealedCoinIndex];
             const result = coin.result;
 
-            // stop neutral animation for this coin, then immediately show heads/tails
             stopCoinAnimation(coin);
 
             coin.sprites.n.style.display = 'none';
@@ -610,7 +650,7 @@
                 currentResultValue += valueToAdd;
                 resultContainer.style.backgroundImage = `url('images/bg_heads.png')`;
                 playSound(soundHeads);
-                // 스파크를 좀 더 크게/많이
+                // 스파크 색상은 coin.element.dataset.state에 따라 결정됨
                 spawnSparksAtCoin(coin.element, 7);
             } else {
                 coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(0)';
@@ -636,9 +676,16 @@
             isRolling = false;
         }
 
-        // 스파크: 더 크고 더 많이, 거리 증가
+        // spawnSparksAtCoin: coinEl.dataset.state를 읽어 색상을 결정
         function spawnSparksAtCoin(coinEl, count) {
-            const rect = coinEl.getBoundingClientRect();
+            const state = coinEl && coinEl.dataset ? coinEl.dataset.state : '0';
+            // 기본: 금색 계열 / alt1/alt2: 빨간 계열
+            const isAltRed = (state === '1' || state === '2');
+
+            const colorStart = isAltRed ? '#ffd6d6' : '#ffffe0';
+            const colorEnd   = isAltRed ? '#ff3b3b' : '#ffd700';
+            const dropShadowColor = isAltRed ? 'rgba(255,60,60,0.9)' : 'rgba(255,215,0,0.9)';
+
             const x0 = coinEl.clientWidth / 2;
             const y0 = coinEl.clientHeight / 2;
 
@@ -661,15 +708,19 @@
                 spark.style.setProperty('--dx', `${dx}px`);
                 spark.style.setProperty('--dy', `${dy}px`);
 
-                // 크기 키우기 (10 ~ 28px)
+                // 크기 (10 ~ 28px)
                 const s = 10 + Math.random()*18; // 10~28px
                 spark.style.width = `${s}px`;
                 spark.style.height = `${s}px`;
                 spark.style.borderRadius = `${s/2}px`;
 
+                // 색상과 그림자 적용 (radial-gradient)
+                spark.style.background = `radial-gradient(circle at 30% 30%, ${colorStart}, ${colorEnd})`;
+                spark.style.filter = `drop-shadow(0 0 8px ${dropShadowColor})`;
+
                 coinEl.appendChild(spark);
 
-                // 조금 길게 유지 (700~900ms 사이)
+                // 유지 시간 (700~900ms)
                 setTimeout(() => { spark.remove(); }, 900);
             }
         }
@@ -679,7 +730,4 @@
 </script>
 
 </body>
-
 </html>
-
-
