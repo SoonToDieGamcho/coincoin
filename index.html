@@ -238,9 +238,13 @@
         cursor:pointer;
     }
 
-    /* 반응형 (모바일): 하단 고정 유지, 내부 레이아웃은 세로로, 중앙 정렬 유지 */
+    /* 반응형 (모바일): 하단 고정 유지, 내부 레이아웃은 세로로, 중앙 정렬 유지
+       + 모든 요소를 절반 크기로 보이게 하기 위해 container 전체를 scale(0.5) 처리. */
     @media (max-width:768px) {
-        body { padding:10px; padding-bottom: 220px; }
+        /* 바디 패딩(모바일 전용) — scale로 인해 시각적으로 줄어든 높이에 맞춰 반으로 조정 */
+        body { padding:10px; padding-bottom: 110px; }
+
+        /* 컨테이너 중앙 정렬 유지, 그리고 모든 내부 요소를 시각적으로 50% 축소 */
         #game-container {
             grid-template-areas:
                 "status"
@@ -252,6 +256,11 @@
             max-width:100%;
             min-height: calc(100vh - 260px);
             align-content: center;
+
+            /* 모든 요소 크기 -50%: scale 적용 */
+            -webkit-transform: scale(0.5);
+            transform: scale(0.5);
+            transform-origin: top center;
         }
 
         /* controls 고정이지만 세로 레이아웃 */
@@ -267,6 +276,7 @@
         }
 
         #sanity-container { justify-content:center; gap:8px; }
+        /* 슬라이더는 시각적으로 작아져서 세로 대신 가로처럼 보일 수 있음 — 필요하면 따로 조정 가능 */
         #sanity-slider { width:100px; height:14px; -webkit-appearance: none; appearance: none; transform: rotate(0deg); }
         #sanity-value-wrapper { width:48px; height:48px; }
         #sanity-value { font-size:22px; }
@@ -325,7 +335,13 @@
 
         <div id="coin-value-control" class="control-group">
             <label for="coin-value-input">코인값:</label>
-            <input type="number" id="coin-value-input" value="0">
+            <!-- 변경: type=number -> type=text + inputmode="numeric" (모바일에서 '-' 입력 가능) -->
+            <input type="text"
+                   id="coin-value-input"
+                   value="0"
+                   inputmode="numeric"
+                   pattern="^-?\d*$"
+                   aria-label="코인값 (음수 허용)">
         </div>
 
         <div id="auto-roll-control" class="control-group">
@@ -407,7 +423,26 @@
             arrowUp.addEventListener('click', () => changeCoinCount(1));
             arrowDown.addEventListener('click', () => changeCoinCount(-1));
             baseValueInput.addEventListener('input', handleBaseValueChange);
+
+            // 기존 coinValue listener 유지 (값 변경 시 디스플레이 반영)
             coinValueInput.addEventListener('input', handleCoinValueChange);
+
+            // --- 모바일에서 '-' 입력 가능하도록 실시간 필터 추가 ---
+            coinValueInput.addEventListener('input', function(e) {
+                // 허용 문자: 숫자 0-9 와 마이너스 기호
+                let v = this.value.replace(/[^\d-]/g, '');
+                // '-'가 여러 개면 하나만 남김 (맨 앞에 위치)
+                const hyphens = (v.match(/-/g) || []).length;
+                if (hyphens > 1) {
+                    v = v.replace(/-/g, '');
+                    v = '-' + v;
+                }
+                // 맨 앞이 아닌 '-'는 제거
+                v = v.replace(/(?!^)-/g, '');
+                this.value = v;
+            });
+            // -----------------------------------------------------
+
             sanitySlider.addEventListener('input', handleSanityChange);
             autoRollCheckbox.addEventListener('change', handleAutoRollChange);
             rollButton.addEventListener('click', startRoll);
@@ -515,6 +550,7 @@
 
         function handleCoinValueChange() {
             if (isRolling) resetToSettingPhase(false);
+            // parseInt will handle '-' -> NaN -> || 0
             coinValue = parseInt(coinValueInput.value,10) || 0;
             updateDisplays();
         }
