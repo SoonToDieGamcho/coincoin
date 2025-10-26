@@ -1,898 +1,1797 @@
 <!DOCTYPE html>
+
 <html lang="ko">
+
 <head>
+
     <meta charset="UTF-8" />
+
     <!-- 데스크탑 기준 폭을 900px로 고정 -->
+
     <meta name="viewport" content="width=900, user-scalable=yes"/>
+
     <title>코인 굴리기</title>
+
     <link rel="icon" type="image/png" href="images/favicon.png">
+
     <!-- 텍스트 폰트 -->
+
 <style>
+
     @font-face {
+
         font-family: 'Escoredream';
+
         src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_six@1.2/S-CoreDream-4Regular.woff') format('woff');
+
         font-weight: normal;
+
         font-display: swap;
+
     }
+
 </style>
+
 <!-- 숫자 폰트 -->
+
 <link href="https://fonts.cdnfonts.com/css/excelsior-sans" rel="stylesheet">
 
+
+
 <style>
+
     /* 전역 박스 사이징 (안정성) */
+
     * { box-sizing: border-box; }
 
+
+
     :root{
+
         --bg-color: #624300;
+
         --text-color: #FFFFFF;
+
         --number-font: 'Excelsior Sans', sans-serif;
+
         --text-font: 'Escoredream', sans-serif;
+
     }
+
+
 
     html, body { height:100%; margin:0; padding:0; }
 
+
+
     /* BODY: 하단 고정 컨트롤 때문에 충분한 바텀 패딩 추가 */
+
     body {
+
         background-color: var(--bg-color);
+
         color: var(--text-color);
+
         font-family: var(--text-font);
+
         margin: 0;
+
         padding: 20px;
+
         padding-bottom: 180px; /* 하단 고정 컨트롤과 겹치지 않게 여유 */
+
         display:flex;
+
         justify-content:center;
+
         align-items:flex-start;
+
         min-height:100vh;
+
         user-select:none;
+
         overflow-y:visible;
+
     }
+
+
 
     .number-font { font-family: var(--number-font); }
 
+
+
     /* 입력창 (크게) */
+
     input[type=number], input[type=text] {
+
         font-family: var(--number-font);
+
         width: 110px;
+
         font-size: 48px;
+
         text-align: center;
+
         border: 2px solid var(--text-color);
+
         background-color: rgba(0,0,0,0.2);
+
         color: var(--text-color);
+
         border-radius: 8px;
+
     }
+
+
 
     /* 레이아웃: 높이를 자동으로 처리하지만 전체 영역은 화면 중앙에 배치되게 함 */
+
     #game-container {
+
         display: grid;
+
         grid-template-areas:
+
             "coins status"
+
             "controls controls";
+
         grid-template-columns: 1fr auto;
+
         grid-template-rows: auto auto;
+
         gap: 20px;
+
         width:100%;
+
         max-width:900px;
+
         height:auto;
+
         min-height: calc(100vh - 220px); /* 하단 컨트롤 공간 확보 후 남는 영역을 차지 */
+
         margin:0 auto;
+
         position:relative;
+
         padding-bottom: 0;
+
         align-content: center; /* 그리드 내용을 수직 중앙에 배치 */
+
     }
 
+
+
     /* 결과 영역 (우측 위) */
+
     #result-status-area { grid-area: status; display:flex; justify-content:center; align-items:center; padding-right:0; position:relative; width:250px; }
+
     #result-container {
+
     position: relative;
+
     width: 220px;
+
     aspect-ratio: 1 / 1;
+
     display: flex;
+
     flex-direction: column;
+
     justify-content: center; /* 가운데 정렬 → 위쪽으로 약간 올리기 위해 변경 */
+
     align-items: center;
+
     border-radius: 12px;
+
     background-size: cover;
+
     background-position: center;
+
     background-repeat: no-repeat;
+
     transition: none;
+
     overflow: hidden;
+
     padding-bottom: 17px; /* 추가: coin-value가 커졌을 때 결과 숫자가 밀리지 않게 여유 위쪽 확보 */
+
     padding-top: 10px;
+
     }
+
+
+
 
 
     /* coin-value 유지, result-value는 반응형으로 */
+
     #coin-value-display {
+
     background-color: transparent;
+
     padding: 0;
+
     margin-bottom: -12px; /* 추가: 결과 숫자(#result-value)와 간격 줄이기 */
+
     font-size: clamp(32px, 6vw, 70px);
+
     line-height: 1;
+
     font-weight: 600;
+
     z-index: 2;
+
     }
+
     #result-value { font-size: clamp(57px, 14vw, 140px); z-index:1; line-height:0.9; }
 
+
+
     /* 코인 영역 - 중앙 기준으로 쌓이도록, 위 공백은 padding-top으로 소량 유지 */
+
     #coin-area {
+
         grid-area: coins;
+
         display:flex;
+
         flex-wrap:wrap;
+
         justify-content:center;
+
         align-content:center;      /* 내부 컨텐츠도 중앙 정렬 */
+
         gap:15px;
+
         margin-top:0;              /* 더 이상 위로 딱 붙지 않음 */
+
         padding:12px 10px 10px 10px; /* 소량의 위쪽 패딩으로 상단과 간격 유지 */
+
         min-height:220px;         /* 최소 높이를 조금 늘려 중앙 배치가 더 안정적으로 보이게 함 */
+
         max-height:60vh;
+
         border-radius:12px;
+
         background-color: rgba(0,0,0,0.1);
+
         overflow-y: visible;         /* 많은 코인 생성 시 내부 스크롤 허용 */
+
     }
+
+
 
     /* 코인 - 중앙 정렬, 높이 고정 (사이즈는 JS에서 동적으로 조절) */
+
     .coin {
+
         width:70px;
+
         height:70px;
+
         position:relative;
+
         cursor:pointer;
+
         transform-style:preserve-3d;
+
         display:flex;
+
         align-items:center;
+
         justify-content:center;
+
     }
+
+
 
     .coin-sprite {
+
         position:absolute;
+
         left:50%;
+
         top:50%;
+
         transform: translate(-50%, -50%) scaleX(1);
+
         width:100%;
+
         height:100%;
+
         object-fit:contain;
+
         backface-visibility:hidden;
+
         transition: transform 0.075s linear;
+
     }
+
+
 
     .coin .sprite-heads { transform: translate(-50%, -50%) scaleX(1); }
+
     .coin .sprite-tails { transform: translate(-50%, -50%) scaleX(0); }
+
     .coin .sprite-neutral { transform: translate(-50%, -50%) scaleX(1); }
 
+
+
     /* 하단 설정 컨테이너 (화면 하단에 고정) */
+
     #controls-container {
+
         /* 고정: 화면 하단에 항상 보임 */
+
         position: fixed;
+
         bottom: 12px;
+
         left: 50%;
+
         transform: translateX(-50%);
+
         width: calc(100% - 40px);
+
         max-width: 900px;
+
         display:flex;
+
         flex-wrap:wrap;
+
         justify-content:space-around;
+
         align-items:center;
+
         gap:20px;
+
         padding:14px 18px;
+
         background-color: #4D3400; /* 진한 브라운 */
+
         border: 2px solid #ffffff;  /* 흰 테두리 */
+
         border-radius:12px;
+
         z-index:20;
+
         box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+
         backdrop-filter: blur(6px);
+
     }
+
+
 
     .control-group { display:flex; align-items:center; gap:10px; color:var(--text-color); }
+
     .control-group label { font-size:18px; }
 
+
+
     #coin-count-control { display:flex; align-items:center; gap:8px; }
+
     #coin-count-stepper { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+
     #coin-count-icon { width:30px; height:30px; }
+
     #coin-count-value { font-size:39px; min-width:40px; text-align:center; cursor:pointer; user-select:none; }
 
+
+
     .arrow-button { width:30px; height:30px; cursor:pointer; transition: transform 0.1s ease; }
+
     .arrow-button:active { transform: scale(0.9); }
 
+
+
     #auto-roll-control label { font-size:18px; cursor:pointer; }
+
     #auto-roll-checkbox { width:20px; height:20px; cursor:pointer; }
 
+
+
     #roll-button { width:120px; height:80px; cursor:pointer; transition: transform 0.1s ease; object-fit:contain; }
+
     #roll-button:active { transform: scale(0.95); }
+
     #roll-button.disabled { filter: grayscale(80%); pointer-events:none; cursor:not-allowed; }
 
+
+
     /* SANITY 관련: 설정칸 내부에 위치 (슬라이더, 배경 이미지 유지) */
+
     #sanity-container {
+
         display:flex;
+
         align-items:center;
+
         gap:10px;
+
         min-width:120px;
+
         justify-content:center;
+
     }
+
     #sanity-value-wrapper { position:relative; width:56px; height:56px; display:flex; justify-content:center; align-items:center; }
+
     #sanity-bg-container { position:absolute; width:100%; height:100%; border-radius:50%; overflow:hidden; }
+
     #sanity-bg-container img { position:absolute; width:100%; height:100%; left:0; top:0; transition: opacity 0.3s ease; }
+
     #sanity-value { font-size:28px; z-index:1; }
+
+
 
     #sanity-slider { -webkit-appearance: slider-vertical; appearance: slider-vertical; width:18px; height:110px; cursor:pointer; }
 
+
+
     /* 스파크 파티클 - 기본 설정은 CSS에서 최소값만 잡음; 실제 색/섀도우는 JS에서 적용 */
+
     .spark {
+
         position:absolute;
+
         width:8px;
+
         height:8px;
+
         border-radius:50%;
+
         pointer-events:none;
+
         opacity:1;
+
         will-change: transform, opacity;
+
         animation: spark-fly 700ms ease-out forwards;
+
         z-index: 30;
+
     }
+
+
 
     @keyframes spark-fly {
+
         0% { transform: translate(0,0) scale(1); opacity:1; }
+
         100% { transform: translate(var(--dx), var(--dy)) scale(0.4); opacity:0; }
+
     }
+
+
 
     /* 슬라이더 스타일(간단) */
+
     input[type="range"].small {
+
         width:150px;
+
         -webkit-appearance: none;
+
         height:6px;
+
         background: rgba(255,255,255,0.15);
+
         border-radius: 6px;
+
         outline:none;
-    }
-    input[type="range"].small::-webkit-slider-thumb {
-        -webkit-appearance:none;
-        width:14px;
-        height:14px;
-        border-radius:50%;
-        background: #fff;
-        box-shadow: 0 0 4px rgba(0,0,0,0.4);
-        cursor:pointer;
+
     }
 
-    /* 인라인 숫자 편집 input 스타일 */
-    .inline-number-input {
-        background: transparent;
-        border: 1px solid rgba(255,255,255,0.6);
-        color: var(--text-color);
-        padding: 2px 6px;
-        border-radius: 6px;
-        min-width: 48px;
-        font-family: var(--number-font);
-        font-size: 36px;
-        text-align:center;
+    input[type="range"].small::-webkit-slider-thumb {
+
+        -webkit-appearance:none;
+
+        width:14px;
+
+        height:14px;
+
+        border-radius:50%;
+
+        background: #fff;
+
+        box-shadow: 0 0 4px rgba(0,0,0,0.4);
+
+        cursor:pointer;
+
     }
+
+
+
+    /* 인라인 숫자 편집 input 스타일 */
+
+    .inline-number-input {
+
+        background: transparent;
+
+        border: 1px solid rgba(255,255,255,0.6);
+
+        color: var(--text-color);
+
+        padding: 2px 6px;
+
+        border-radius: 6px;
+
+        min-width: 48px;
+
+        font-family: var(--number-font);
+
+        font-size: 36px;
+
+        text-align:center;
+
+    }
+
+
 
     /* ------------------ 모바일 오버라이드 제거 ------------------ */
 
+
+
     @media (max-width:420px) {
+
         body { padding:12px; padding-bottom: 160px; }
+
         input[type=number], input[type=text] { width:90px; font-size:36px; }
+
         #coin-count-value { font-size:32px; }
+
         #roll-button { width:100px; height:70px; }
+
         .coin { width:60px; height:60px; }
+
         #result-container { width:180px; }
+
     }
+
+
 
 </style>
 
+
+
 </head>
+
 <body>
+
 <div id="game-container">
 
+
+
     <div id="result-status-area">
+
         <div id="result-container">
+
             <div id="coin-value-display" class="number-font">+0</div>
+
             <span id="result-value" class="number-font">0</span>
+
         </div>
+
     </div>
+
+
 
     <div id="coin-area"></div>
 
+
+
     <!-- 설정칸: 하단 고정. 정신력 표시(#sanity-container)를 여기로 이동 -->
+
     <div id="controls-container">
+
         <!-- SANITY (설정칸 내부로 이동) -->
+
         <div id="sanity-container">
+
             <div id="sanity-display">
+
                 <div id="sanity-value-wrapper">
+
                     <div id="sanity-bg-container">
+
                         <img id="sanity-bg-base" src="images/sanity_bg_base.png" alt="정신력 배경 기본">
+
                         <img id="sanity-bg-a" src="images/sanity_bg_a.png" alt="정신력 배경 +" style="opacity:0">
+
                         <img id="sanity-bg-b" src="images/sanity_bg_b.png" alt="정신력 배경 -" style="opacity:0">
+
                     </div>
+
                     <span id="sanity-value" class="number-font">0</span>
+
                 </div>
+
             </div>
+
             <input type="range" id="sanity-slider" min="-45" max="45" value="0" orient="vertical">
+
         </div>
+
+
 
         <div id="coin-count-control" class="control-group">
+
             <img id="coin-count-icon" src="images/coin_normal_neutral.png" alt="코인 아이콘">
+
             <div id="coin-count-stepper">
+
                 <img id="arrow-up" class="arrow-button" src="images/arrow_up.png" alt="증가">
+
                 <span id="coin-count-value" class="number-font" tabindex="0">1</span>
+
                 <img id="arrow-down" class="arrow-button" src="images/arrow_down.png" alt="감소">
+
             </div>
+
         </div>
+
+
 
         <div id="base-value-control" class="control-group">
+
             <label for="base-value-input">기본값:</label>
+
             <input type="number" id="base-value-input" value="0" min="0">
+
         </div>
+
+
 
         <div id="coin-value-control" class="control-group">
+
             <label for="coin-value-input">코인값:</label>
+
             <!-- 변경: type=number -> type=text + inputmode="numeric" (모바일에서 '-' 입력 가능) -->
+
             <input type="text"
+
                    id="coin-value-input"
+
                    value="0"
+
                    inputmode="numeric"
+
                    pattern="^-?\d*$"
+
                    aria-label="코인값 (음수 허용)">
+
         </div>
+
+
 
         <!-- 새로 추가된: 마이너스 코인 체크박스 -->
+
         <div id="negative-coin-control" class="control-group">
+
             <input type="checkbox" id="negative-coin-checkbox" />
+
             <label for="negative-coin-checkbox">마이너스 코인</label>
+
         </div>
+
+
 
         <div id="auto-roll-control" class="control-group">
+
             <input type="checkbox" id="auto-roll-checkbox" checked>
+
             <label for="auto-roll-checkbox">자동 굴리기</label>
+
         </div>
+
+
 
         <!-- 자동굴리기 속도 슬라이더 (0.1 ~ 2초) -->
+
         <div id="auto-roll-speed-control" class="control-group">
+
             <label for="auto-roll-speed">속도:</label>
+
             <input id="auto-roll-speed" class="small" type="range" min="0.1" max="2" step="0.1" value="0.5">
+
             <span id="auto-roll-speed-value" class="number-font" style="font-size:20px; min-width:48px; text-align:center;">0.5s</span>
+
         </div>
 
+
+
         <img id="roll-button" src="images/button_roll.png" alt="굴리기">
+
     </div>
+
 </div>
 
+
+
 <script>
+
     document.addEventListener('DOMContentLoaded', () => {
+
         const spritePaths = {
+
             0: { n: 'images/coin_normal_neutral.png', h: 'images/coin_normal_heads.png', t: 'images/coin_normal_tails.png' },
+
             1: { n: 'images/coin_alt1_neutral.png', h: 'images/coin_alt1_heads.png', t: 'images/coin_alt1_tails.png' },
+
             2: { n: 'images/coin_alt2_neutral.png', h: 'images/coin_alt2_heads.png', t: 'images/coin_alt2_tails.png' }
+
         };
 
+
+
         // 사운드 로드
+
         const soundRoll = new Audio('sounds/roll.wav');
+
         const soundHeads = new Audio('sounds/heads.wav');
+
         const soundTails = new Audio('sounds/tails.wav');
-        soundTails.volume = 0.3;
+
+        soundTails.volume = 0.1;
+        
+        soundHeads.volume = 0.3;
+
+        soundRoll.volume = 0.4;
+
 
         function playSound(template) {
+
             if (!template) return;
+
             try {
+
                 const a = template.cloneNode();
+
                 a.volume = template.volume;
+
                 a.play().catch(()=>{});
+
             } catch(e){}
+
         }
+
+
 
         const coinArea = document.getElementById('coin-area');
+
         const resultValueEl = document.getElementById('result-value');
+
         const resultContainer = document.getElementById('result-container');
+
         const coinValueDisplayEl = document.getElementById('coin-value-display');
 
+
+
         const arrowUp = document.getElementById('arrow-up');
+
         const arrowDown = document.getElementById('arrow-down');
+
         const coinCountIcon = document.getElementById('coin-count-icon');
 
+
+
         const baseValueInput = document.getElementById('base-value-input');
+
         const coinValueInput = document.getElementById('coin-value-input');
+
         const rollButton = document.getElementById('roll-button');
+
         const autoRollCheckbox = document.getElementById('auto-roll-checkbox');
 
+
+
         const sanitySlider = document.getElementById('sanity-slider');
+
         const sanityValueEl = document.getElementById('sanity-value');
+
         const sanityBgA = document.getElementById('sanity-bg-a');
+
         const sanityBgB = document.getElementById('sanity-bg-b');
 
+
+
         // auto-roll speed elements
+
         const autoRollSpeedEl = document.getElementById('auto-roll-speed');
+
         const autoRollSpeedValueEl = document.getElementById('auto-roll-speed-value');
 
+
+
         // 새로 추가된 체크박스 참조
+
         const negativeCheckbox = document.getElementById('negative-coin-checkbox');
 
+
+
         let coinCount = 1;
+
         let baseValue = 0;
+
         let coinValue = 0;
+
         let sanityValue = 0;
+
         let isAutoRoll = false;
 
+
+
         let isRolling = false;
+
         let coins = [];
+
         let currentResultValue = 0;
+
         let revealedCoinIndex = 0;
+
         let autoRollInterval = null;
 
+
+
         function init() {
+
             arrowUp.addEventListener('click', () => changeCoinCount(1));
+
             arrowDown.addEventListener('click', () => changeCoinCount(-1));
+
             baseValueInput.addEventListener('input', handleBaseValueChange);
 
+
+
             // coin-value listener
+
             coinValueInput.addEventListener('input', function(e) {
+
                 // 허용 문자: 숫자 0-9 와 마이너스 기호
+
                 let v = this.value.replace(/[^\d-]/g, '');
+
                 // '-'가 여러 개면 하나만 남김 (맨 앞에 위치)
+
                 const hyphens = (v.match(/-/g) || []).length;
+
                 if (hyphens > 1) {
+
                     v = v.replace(/-/g, '');
+
                     v = '-' + v;
+
                 }
+
                 // 맨 앞이 아닌 '-'는 제거
+
                 v = v.replace(/(?!^)-/g, '');
+
                 this.value = v;
 
+
+
                 // 만약 체크박스가 켜져있고 사용자가 '-'를 지웠다면 자동으로 앞에 '-' 붙여주기
+
                 if (negativeCheckbox && negativeCheckbox.checked && !this.value.startsWith('-')) {
+
                     this.value = '-' + (this.value === '' ? '0' : this.value);
+
                 }
+
+
 
                 handleCoinValueChange();
+
             });
+
+
 
             // 체크박스 이벤트: 체크시 입력값 앞에 '-' 붙이기, 해제시 '-' 제거
+
             negativeCheckbox.addEventListener('change', handleNegativeToggle);
 
+
+
             sanitySlider.addEventListener('input', handleSanityChange);
+
             autoRollCheckbox.addEventListener('change', handleAutoRollChange);
+
             rollButton.addEventListener('click', startRoll);
+
             document.addEventListener('click', handleManualReveal);
 
+
+
             // auto-roll speed listeners
+
             autoRollSpeedEl.addEventListener('input', handleAutoRollSpeedChange);
 
+
+
             updateCoinCount(1);
+
             handleBaseValueChange();
+
             // 초기 coinValue 반영 (coinValueInput value 초기값: "0")
+
             handleCoinValueChange();
+
             handleSanityChange();
+
             handleAutoRollChange();
+
             handleAutoRollSpeedChange();
+
             resetToSettingPhase(false);
 
+
+
             // window resize 시 레이아웃 조정
+
             window.addEventListener('resize', () => adjustCoinLayout());
+
         }
+
+
 
         function changeCoinCount(amount) {
+
             if (isRolling) resetToSettingPhase(true);
+
             let newCount = coinCount + amount;
+
             if (newCount < 1) newCount = 1;
+
             if (newCount !== coinCount) updateCoinCount(newCount);
+
         }
+
+
 
         // ---- 인라인 편집 관련: bind / activate / update 통합 ----
+
         function bindCoinCountSpan() {
+
             const span = document.getElementById('coin-count-value');
+
             if (!span) return;
+
             span.tabIndex = 0;
+
             span.classList.add('number-font');
+
             // 덮어쓰기 방식으로 이벤트 지정 (중복 방지)
+
             span.onclick = activateInlineCoinCountEditor;
+
             span.onkeydown = function(e) { if (e.key === 'Enter') activateInlineCoinCountEditor(); };
+
         }
+
+
 
         function activateInlineCoinCountEditor() {
+
             if (document.getElementById('inline-coin-count-input')) return;
+
             const span = document.getElementById('coin-count-value');
+
             if (!span) return;
 
+
+
             const current = String(coinCount);
+
             const input = document.createElement('input');
+
             input.type = 'number';
+
             input.min = '1';
+
             input.value = current;
+
             input.id = 'inline-coin-count-input';
+
             input.className = 'inline-number-input number-font';
+
             input.setAttribute('inputmode', 'numeric');
+
             input.style.fontSize = window.matchMedia('(max-width:420px)').matches ? '28px' : '36px';
 
+
+
             // 교체
+
             span.replaceWith(input);
+
             input.focus();
+
             input.select();
 
+
+
             function restoreSpan() {
+
                 if (!input.parentNode) return;
+
                 const newSpan = document.createElement('span');
+
                 newSpan.id = 'coin-count-value';
+
                 newSpan.className = 'number-font';
+
                 newSpan.tabIndex = 0;
+
                 newSpan.textContent = String(coinCount);
+
                 input.replaceWith(newSpan);
+
                 bindCoinCountSpan();
+
             }
+
+
 
             function commit() {
+
                 let v = parseInt(input.value, 10);
+
                 if (!isFinite(v) || v < 1) v = 1;
+
                 updateCoinCount(v);
+
                 restoreSpan();
+
             }
+
+
 
             input.addEventListener('keydown', (e) => {
+
                 if (e.key === 'Enter') {
+
                     commit();
+
                 } else if (e.key === 'Escape') {
+
                     restoreSpan();
+
                 }
+
             });
+
+
 
             input.addEventListener('blur', () => {
+
                 commit();
+
             });
+
         }
+
+
 
         function updateCoinCount(newCount) {
+
             coinCount = newCount;
+
             // coin-count-value DOM이 교체될 수 있으니 항상 query
+
             const el = document.getElementById('coin-count-value');
+
             if (el) el.textContent = coinCount;
+
             coinArea.innerHTML = '';
+
             coins = [];
 
+
+
             // 성능: DocumentFragment로 한꺼번에 추가
+
             const frag = document.createDocumentFragment();
+
             for (let i=0;i<coinCount;i++) {
+
                 const coinEl = createCoinElement(i);
+
                 frag.appendChild(coinEl);
+
             }
+
             coinArea.appendChild(frag);
 
+
+
             adjustCoinLayout();
+
             updateDisplays();
 
+
+
             // 새로 생성된/복원된 span에 이벤트 바인딩 (항상 호출)
+
             bindCoinCountSpan();
+
         }
 
+
+
         function createCoinElement(id) {
+
             const coinEl = document.createElement('div');
+
             coinEl.className = 'coin';
+
             coinEl.dataset.state = '0'; // 초기 상태 표기
 
+
+
             const neutralImg = document.createElement('img');
+
             neutralImg.className = 'coin-sprite sprite-neutral';
+
             const headsImg = document.createElement('img');
+
             headsImg.className = 'coin-sprite sprite-heads';
+
             const tailsImg = document.createElement('img');
+
             tailsImg.className = 'coin-sprite sprite-tails';
 
+
+
             coinEl.appendChild(neutralImg);
+
             coinEl.appendChild(headsImg);
+
             coinEl.appendChild(tailsImg);
 
+
+
             const coin = {
+
                 id,
+
                 state: 0,
+
                 result: null,
+
                 element: coinEl,
+
                 sprites: { n: neutralImg, h: headsImg, t: tailsImg },
+
                 animationInterval: null
+
             };
+
+
 
             updateCoinSprites(coin);
 
+
+
             coin.sprites.n.style.display = 'block';
+
             coin.sprites.h.style.display = 'none';
+
             coin.sprites.t.style.display = 'none';
+
+
 
             coinEl.addEventListener('click', (e) => {
+
                 e.stopPropagation();
+
                 if (isRolling) return;
+
                 coin.state = (coin.state + 1) % 3;
+
                 updateCoinSprites(coin);
+
                 coinCountIcon.src = spritePaths[0].n;
+
             });
+
+
 
             coins.push(coin);
+
             return coinEl;
+
         }
+
+
 
         function adjustCoinLayout() {
+
             // 동적으로 열 개수 계산 -> 코인 사이즈 조절
+
             const areaWidth = coinArea.clientWidth || Math.min(window.innerWidth, 800);
+
             // 간단히: 루트에 근거한 격자 계산
+
             const cols = Math.max(1, Math.ceil(Math.sqrt(coinCount)));
+
             const gapTotal = 15 * (cols + 1);
+
             const approxSize = Math.floor((areaWidth - gapTotal) / cols);
+
             let size = Math.max(24, Math.min(70, approxSize));
+
             if (!isFinite(size) || size < 20) size = 20;
 
+
+
             coins.forEach(c => { c.element.style.width = `${size}px`; c.element.style.height = `${size}px`; });
+
         }
+
+
 
         function updateCoinSprites(coin) {
+
             const paths = spritePaths[coin.state];
+
             coin.sprites.n.src = paths.n;
+
             coin.sprites.h.src = paths.h;
+
             coin.sprites.t.src = paths.t;
+
             coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(1)';
+
             coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(0)';
+
             coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
+
             if (coin.element) coin.element.dataset.state = String(coin.state);
+
         }
+
+
 
         function handleBaseValueChange() {
+
             if (isRolling) resetToSettingPhase(false);
+
             baseValue = parseInt(baseValueInput.value,10) || 0;
+
             if (baseValue < 0) { baseValue = 0; baseValueInput.value = 0; }
+
             updateDisplays();
+
         }
+
+
 
         function handleCoinValueChange() {
+
             if (isRolling) resetToSettingPhase(false);
+
             const raw = (coinValueInput.value || '').trim();
+
             const digitsOnly = raw.replace(/[^0-9]/g, '');
+
             const absVal = parseInt(digitsOnly, 10) || 0;
+
             const userTypedNegative = raw.startsWith('-');
 
+
+
             if (negativeCheckbox && negativeCheckbox.checked) {
+
                 coinValue = -absVal;
+
             } else if (userTypedNegative) {
+
                 coinValue = -absVal;
+
             } else {
+
                 coinValue = absVal;
+
             }
 
+
+
             updateDisplays();
+
         }
+
+
 
         function handleNegativeToggle() {
+
             if (isRolling) resetToSettingPhase(false);
+
+
 
             let v = (coinValueInput.value || '').replace(/[^0-9]/g, '');
+
             if (v === '') v = '0';
 
+
+
             if (negativeCheckbox.checked) {
+
                 if (!coinValueInput.value.startsWith('-')) {
+
                     coinValueInput.value = '-' + v;
+
                 } else {
+
                     coinValueInput.value = '-' + v;
+
                 }
+
             } else {
+
                 if (coinValueInput.value.startsWith('-')) {
+
                     coinValueInput.value = v;
+
                 } else {
+
                     coinValueInput.value = v;
+
                 }
+
             }
+
             handleCoinValueChange();
+
         }
+
+
 
         function handleSanityChange() {
+
             if (isRolling) resetToSettingPhase(false);
+
             sanityValue = parseInt(sanitySlider.value,10);
+
             updateDisplays();
+
         }
+
+
 
         function handleAutoRollChange() {
+
             if (isRolling) resetToSettingPhase(false);
+
             isAutoRoll = autoRollCheckbox.checked;
+
         }
+
+
 
         function handleAutoRollSpeedChange() {
+
             const val = parseFloat(autoRollSpeedEl.value);
+
             autoRollSpeedValueEl.textContent = val.toFixed(1) + 's';
+
             if (isAutoRoll && isRolling) {
+
                 if (autoRollInterval) {
+
                     clearInterval(autoRollInterval);
+
                     autoRollInterval = setInterval(revealNextCoin, Math.max(50, Math.round(val * 1000)));
+
                 }
+
             }
+
         }
+
+
 
         function updateDisplays() {
+
             coinValueDisplayEl.textContent = (coinValue >= 0 ? '+' : '') + coinValue;
+
             if (isRolling) resultValueEl.textContent = currentResultValue;
+
             else resultValueEl.textContent = baseValue;
 
+
+
             sanityValueEl.textContent = sanityValue;
+
             if (sanityValue >= 0) {
+
                 sanityBgA.style.opacity = sanityValue / 45;
+
                 sanityBgB.style.opacity = 0;
+
             } else {
+
                 sanityBgA.style.opacity = 0;
+
                 sanityBgB.style.opacity = Math.abs(sanityValue) / 45;
+
             }
+
+
 
             const ccEl = document.getElementById('coin-count-value');
+
             if (ccEl) ccEl.textContent = String(coinCount);
+
         }
+
+
 
         function startCoinAnimation(coin) {
+
             stopCoinAnimation(coin);
+
             coin.sprites.n.style.display = 'block';
+
             coin.sprites.h.style.display = 'none';
+
             coin.sprites.t.style.display = 'none';
 
+
+
             coin.animationInterval = setInterval(() => {
+
                 const prev = coin.sprites.n.style.transform;
+
                 if (!prev || prev.includes('scaleX(1)')) {
+
                     coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(0)';
+
                 } else {
+
                     coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
+
                 }
+
             }, 75);
+
         }
+
+
 
         function stopCoinAnimation(coin) {
+
             if (coin.animationInterval) {
+
                 clearInterval(coin.animationInterval);
+
                 coin.animationInterval = null;
+
             }
+
             if (coin && coin.sprites && coin.sprites.n) {
+
                 coin.sprites.n.style.transform = 'translate(-50%, -50%) scaleX(1)';
+
             }
+
         }
+
+
 
         function resetToSettingPhase(resetCoinStates) {
+
             isRolling = false;
+
             revealedCoinIndex = 0;
+
             currentResultValue = baseValue;
+
             if (autoRollInterval) { clearInterval(autoRollInterval); autoRollInterval = null; }
+
             rollButton.classList.remove('disabled');
+
             resultContainer.style.backgroundImage = `url('images/bg_heads.png')`;
 
+
+
             coins.forEach(coin => {
+
                 stopCoinAnimation(coin);
+
                 coin.sprites.n.style.display = 'block';
+
                 coin.sprites.h.style.display = 'none';
+
                 coin.sprites.t.style.display = 'none';
+
                 if (resetCoinStates) {
+
                     coin.state = 0;
+
                     updateCoinSprites(coin);
+
                 }
+
                 const sparks = coin.element.querySelectorAll('.spark');
+
                 sparks.forEach(s => s.remove());
+
             });
 
+
+
             updateDisplays();
+
         }
 
+
+
         function startRoll() {
+
             if (isRolling && revealedCoinIndex < coinCount) return;
+
             isRolling = true;
+
             rollButton.classList.add('disabled');
+
             revealedCoinIndex = 0;
+
             currentResultValue = baseValue;
+
             updateDisplays();
+
+
 
             playSound(soundRoll);
 
+
+
             const prob = (sanityValue + 50) / 100;
+
             coins.forEach(coin => {
+
                 coin.result = (Math.random() < prob ? 'h' : 't');
+
             });
+
+
 
             coins.forEach(startCoinAnimation);
 
+
+
             if (isAutoRoll) {
+
                 const delay = Math.max(50, Math.round(parseFloat(autoRollSpeedEl.value) * 1000));
+
                 autoRollInterval = setInterval(revealNextCoin, delay);
+
             }
+
         }
+
+
 
         function handleManualReveal(e) {
+
             if (!isRolling || isAutoRoll || e.target === rollButton) return;
+
             if (revealedCoinIndex < coinCount) revealNextCoin();
+
         }
 
+
+
         // revealNextCoin: alt2 + negativeCheckbox => 앞면 합산 -1 처리
+
         function revealNextCoin() {
+
             if (revealedCoinIndex >= coinCount) return;
 
+
+
             const coin = coins[revealedCoinIndex];
+
             const result = coin.result;
+
+
 
             stopCoinAnimation(coin);
 
+
+
             coin.sprites.n.style.display = 'none';
+
             coin.sprites.h.style.display = 'block';
+
             coin.sprites.t.style.display = 'block';
 
+
+
             if (result === 'h') {
+
                 coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(1)';
+
                 coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(0)';
 
+
+
                 // alt2 처리: negativeCheckbox 체크 시 -1, 아니면 +1
+
                 let valueToAdd;
+
                 if (coin.state === 2) {
+
                     valueToAdd = (negativeCheckbox && negativeCheckbox.checked) ? -1 : 1;
+
                 } else {
+
                     // 그 외는 coinValue(이미 음수/양수 반영됨)
+
                     valueToAdd = coinValue;
+
                 }
 
+
+
                 currentResultValue += valueToAdd;
+
                 resultContainer.style.backgroundImage = `url('images/bg_heads.png')`;
+
                 playSound(soundHeads);
+
                 spawnSparksAtCoin(coin.element, 7);
+
             } else {
+
                 coin.sprites.h.style.transform = 'translate(-50%, -50%) scaleX(0)';
+
                 coin.sprites.t.style.transform = 'translate(-50%, -50%) scaleX(1)';
+
                 resultContainer.style.backgroundImage = `url('images/bg_tails.png')`;
+
                 playSound(soundTails);
+
             }
+
+
 
             revealedCoinIndex++;
+
             updateDisplays();
 
+
+
             if (revealedCoinIndex === coinCount) {
+
                 endRoll();
+
             }
+
         }
+
+
 
         function endRoll() {
+
             if (isAutoRoll && autoRollInterval) {
+
                 clearInterval(autoRollInterval);
+
                 autoRollInterval = null;
+
             }
+
             rollButton.classList.remove('disabled');
+
             isRolling = false;
+
         }
 
+
+
         // spawnSparksAtCoin: coinEl.dataset.state를 읽어 색상을 결정
+
         function spawnSparksAtCoin(coinEl, count) {
+
             const state = coinEl && coinEl.dataset ? coinEl.dataset.state : '0';
+
             const isAltRed = (state === '1' || state === '2');
 
+
+
             const colorStart = isAltRed ? '#ffd6d6' : '#ffffe0';
+
             const colorEnd   = isAltRed ? '#ff3b3b' : '#ffd700';
+
             const dropShadowColor = isAltRed ? 'rgba(255,60,60,0.9)' : 'rgba(255,215,0,0.9)';
 
+
+
             const x0 = coinEl.clientWidth / 2;
+
             const y0 = coinEl.clientHeight / 2;
 
+
+
             for (let i=0;i<count;i++) {
+
                 const spark = document.createElement('div');
+
                 spark.className = 'spark';
 
+
+
                 const startX = x0 + (Math.random()*8 - 4);
+
                 const startY = y0 + (Math.random()*8 - 4);
+
                 spark.style.left = `${startX - 8}px`;
+
                 spark.style.top = `${startY - 8}px`;
 
+
+
                 const angle = Math.random() * Math.PI * 2;
+
                 const dist = 40 + Math.random()*80; // 40~120px
+
                 const dx = Math.cos(angle) * dist;
+
                 const dy = Math.sin(angle) * dist;
 
+
+
                 spark.style.setProperty('--dx', `${dx}px`);
+
                 spark.style.setProperty('--dy', `${dy}px`);
 
+
+
                 const s = 10 + Math.random()*18; // 10~28px
+
                 spark.style.width = `${s}px`;
+
                 spark.style.height = `${s}px`;
+
                 spark.style.borderRadius = `${s/2}px`;
 
+
+
                 spark.style.background = `radial-gradient(circle at 30% 30%, ${colorStart}, ${colorEnd})`;
+
                 spark.style.filter = `drop-shadow(0 0 8px ${dropShadowColor})`;
+
+
 
                 coinEl.appendChild(spark);
 
+
+
                 setTimeout(() => { spark.remove(); }, 900);
+
             }
+
         }
 
+
+
         // 시작
+
         init();
+
     });
+
 </script>
 
+
+
 </body>
+
 </html>
+
 
 
